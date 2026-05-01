@@ -14,7 +14,7 @@ effect-vue decomposes into eight bounded contexts. Each owns a clear responsibil
 | 2 | **Runtime** | Effect runtime + Layer DI bridge | `provideAtomRuntime`, `injectAtomRuntime` |
 | 3 | **Derivations** | Computed-style atom transformations | `deriveAtom` (slice 2) |
 | 4 | **Async ergonomics** | Pending/error/data triple for async sources | `useAsyncAtom` ✅ slice 2 LIVE |
-| 5 | **Families** | Parametric atom factories | `familyAtom` (slice 3) |
+| 5 | **Families** | Parametric atom factories | `familyAtom` ✅ slice 3 LIVE |
 | 6 | **Pattern matching** | Exhaustive view-state matching (Effect.Match → templates) | (investigated in slice 2, may land slice 3+) |
 | 7 | **Messaging** | Cross-component pub/sub on Effect.Hub | (deferred — `@effect-vue/messaging` future) |
 | 8 | **Telemetry** | OpenTelemetry from browser | (deferred — `@effect-vue/telemetry` future) |
@@ -67,12 +67,36 @@ These three are created together, owned together, disposed together. They are th
 
 (Events are conceptual — not literally emitted on a bus. They describe the lifecycle vocabulary used in tests and specs.)
 
+## Families — bounded context detail
+
+**STATUS:** LIVE (slice 3 first composable shipped — boundaries + matching + DevTools still pending in slice 3)
+**FLOW:** factory + (key) → cache lookup → (miss: factory(key) → createMember runs in captured parent scope; hit: return cached Ref)
+**SOURCE:** `packages/core/src/familyAtom.ts` — `familyAtom`
+**LAST VERIFIED:** 2026-04-30
+
+### Aggregate root: Family
+
+A family is a closure over three pieces of state captured at `familyAtom` call time:
+- the cache `Map<K, Ref<A> | Ref<A | undefined>>` (lazy, populated on first access per key)
+- the parent `EffectScope` (captured via `getCurrentScope()`)
+- the resolved runtime (captured via `runtimeOverride ?? injectAtomRuntime<R>()`)
+
+These three are immutable for the life of the family. The family function itself has no identity — it's a thin closure over the cache.
+
+### Why runtime is captured at family-creation time
+
+Vue's `inject()` only works inside `setup()` or a functional component's render function. If `familyAtom` deferred runtime resolution to per-key calls, calling `family(k)` from an event handler, watcher, or microtask would crash. By resolving the runtime once at family-creation time and capturing it in closure, `family(k)` is safe to call from anywhere — the family carries its own DI context.
+
+### Why parent scope is captured at family-creation time
+
+Each cached atom's fiber needs cleanup tied to the family's lifetime, NOT the call-site's lifetime. If `family(k)` were called from a transient child scope (e.g., inside a temporary `effectScope`), the atom's fiber would be interrupted prematurely while the family still expected it cached. Running member creation inside `parentScope.run(() => createMember(...))` ensures every member's `onScopeDispose` registers with the family's scope.
+
 ## Runtime — bounded context detail
 
-**STATUS:** LIVE (slice 1 shipped)
+**STATUS:** LIVE (slice 1 shipped, hardened slice 3)
 **FLOW:** parent's `provideAtomRuntime(layer)` → ManagedRuntime.make(layer) → Vue.provide(SYMBOL, runtime) → child's `injectAtomRuntime()` → atom uses runtime.runFork instead of Effect.runFork
 **SOURCE:** `packages/core/src/runtime.ts` — `provideAtomRuntime`, `injectAtomRuntime`
-**LAST VERIFIED:** 2026-04-30
+**LAST VERIFIED:** 2026-04-30 (slice 3 hardened: `injectAtomRuntime` guards on `getCurrentInstance()` to avoid Vue's "inject() outside setup()" warning when called from standalone effectScope)
 
 ### Aggregate root: Runtime
 

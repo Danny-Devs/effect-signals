@@ -1,5 +1,5 @@
 import { type Layer, ManagedRuntime } from "effect"
-import { inject, type InjectionKey, provide } from "vue"
+import { getCurrentInstance, inject, type InjectionKey, provide } from "vue"
 
 const ATOM_RUNTIME_KEY: InjectionKey<ManagedRuntime.ManagedRuntime<unknown, never>>
   = Symbol("EffectVueAtomRuntime")
@@ -18,8 +18,12 @@ export function provideAtomRuntime<R>(
 export function injectAtomRuntime<R = unknown>():
   | ManagedRuntime.ManagedRuntime<R, never>
   | undefined {
-  // Pass `undefined` default so Vue does not warn when used outside a provider —
-  // atoms fall back to Effect.runFork on the default runtime in that case.
+  // Vue's inject() emits a warning when called outside a component instance
+  // (e.g., from a standalone effectScope). Atoms in such contexts cannot
+  // benefit from injected runtimes anyway — fall through cleanly.
+  if (!getCurrentInstance()) {
+    return undefined
+  }
   return inject(ATOM_RUNTIME_KEY, undefined) as
     | ManagedRuntime.ManagedRuntime<R, never>
     | undefined

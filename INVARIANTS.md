@@ -7,11 +7,13 @@
 ## Tier 1 — Constitutional safety (NEVER violated)
 
 ### INV-1: Fiber containment
-**Rule:** ∀ fiber f spawned by `createAtom` (or any composable that internally creates fibers), `Fiber.interrupt(f)` is called before the surrounding `effectScope` is disposed.
+**Rule:** ∀ fiber f spawned by `createAtom`, `useAsyncAtom`, `familyAtom`, or any composable that internally creates fibers, `Fiber.interrupt(f)` is called before the surrounding `effectScope` is disposed.
 
 **Rationale:** Orphan fibers leak resources, may continue updating disposed components, and create undefined behavior. Vue scope is the universal owner.
 
-**Witness:** Property test — create N atoms in a manually-managed `effectScope`, dispose the scope, verify that all fibers report status `Interrupted` within one event loop tick.
+**Witnesses:**
+- `packages/core/test/familyAtom.test.ts > "cleans up all family member fibers when the parent scope disposes (INV-1 at family level)"` — explicitly disposes a scope containing a familyAtom with three members; asserts no throws and idempotent re-disposal.
+- Property test (planned slice 3+): create N atoms in a manually-managed `effectScope`, dispose, verify all fibers report status `Interrupted` within one event loop tick.
 
 ### INV-2: Type fidelity
 **Rule:** ∀ atom `a` created from `Effect.Effect<A, E, R>`, the type of `a.value` is exactly `A | undefined`. The atom never silently widens, narrows, or coerces.

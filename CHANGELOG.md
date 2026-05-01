@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 3 begins: familyAtom shipped
+
+### [feat] @effect-vue/core — `familyAtom` parametric atom factory
+
+- `familyAtom(factory)` produces a function `(key) => Ref` that caches by key. Same key → same Ref instance (factory invoked exactly once per distinct key).
+- Supports Effect, Stream, and plain-value factories with the same overload structure as `createAtom`. R-preservation overloads included (type-safe runtime parameter + unsafe injected-runtime variant).
+- Runtime is resolved ONCE at `familyAtom` call time (not per-key) — `family(k)` is safe to call from event handlers, watchers, microtasks, or any non-`setup()` context.
+- Parent `effectScope` is captured at family-creation time; all members' fibers register cleanup with that scope (NOT the call-site's scope), so transient child scopes can't prematurely interrupt cached members.
+- 5 new vitest cases (15 total): cache hit/miss identity, factory-call-count, async resolution, runtime captured at creation time + safe non-setup call, family-scope cleanup with INV-5 idempotence.
+- Bundle: 3.52 kB / gzip 0.86 kB (was 0.67 kB → +0.19 kB; under INV-11's 0.5 kB per-composable budget).
+
+### [docs] specs + architecture updated
+
+- `specs/familyAtom.allium` — first behavioral spec for the families context. Documents API surface, key equality, family-level cleanup semantics, and the deliberate divergence from atom-react (runtime capture at family time, not per-key).
+- `ARCHITECTURE.md` — Families context marked LIVE; new subsection explains why runtime + parent scope are captured at family-creation time.
+
+### [fix] @effect-vue/core — `injectAtomRuntime` hardened
+
+- `injectAtomRuntime` now early-returns `undefined` when no Vue component instance is active (`getCurrentInstance()` check). Previously, calling it from a standalone `effectScope` triggered Vue's "inject() can only be used inside setup() or functional components" warning. The gate lives in `injectAtomRuntime` (one place) rather than at every caller, which keeps `createAtom`, `useAsyncAtom`, and `familyAtom` clean.
+- `INVARIANTS.md` INV-1 updated to enumerate `useAsyncAtom` and `familyAtom` alongside `createAtom`, with the family-cleanup test cited as the witness.
+
+### [chore] slice 3 in progress
+
+Remaining slice 3 work: `<AtomBoundary>` SFC, Pattern Matching primitive (`useMatch`), DevTools breadcrumb hooks. Tracked in ROADMAP.md.
+
 ## [2026-04-30] — handoffs/ archive convention added
 
 ### [docs] HANDOFF.md archive pattern
