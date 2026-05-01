@@ -1,0 +1,9 @@
+{
+  "name": "@effect-vue/devtools",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vue DevTools panel for inspecting effect-vue atoms (Phase 3 — placeholder)",
+  "author": "Danny Ahn",
+  "license": "MIT"
+}

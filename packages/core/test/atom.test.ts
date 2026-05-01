@@ -1,0 +1,84 @@
+import { mount } from "@vue/test-utils"
+import { Context, Effect, Layer } from "effect"
+import { describe, expect, it } from "vitest"
+import { defineComponent, h, nextTick } from "vue"
+import { createAtom, injectAtomRuntime, provideAtomRuntime } from "../src/index.js"
+
+describe("createAtom", () => {
+  it("wraps a plain value as a Vue ref", () => {
+    const Comp = defineComponent({
+      setup() {
+        const counter = createAtom(42)
+        return () => h("div", { class: "result" }, String(counter.value))
+      },
+    })
+    const wrapper = mount(Comp)
+    expect(wrapper.find(".result").text()).toBe("42")
+  })
+
+  it("resolves a synchronous Effect into a ref", async () => {
+    const Comp = defineComponent({
+      setup() {
+        const greeting = createAtom(Effect.succeed("hello, effect-vue"))
+        return () => h("div", { class: "result" }, greeting.value ?? "pending")
+      },
+    })
+    const wrapper = mount(Comp)
+    await nextTick()
+    expect(wrapper.find(".result").text()).toBe("hello, effect-vue")
+  })
+
+  it("starts pending and resolves a delayed Effect", async () => {
+    const Comp = defineComponent({
+      setup() {
+        const greeting = createAtom(
+          Effect.succeed("delayed").pipe(Effect.delay("10 millis")),
+        )
+        return () => h("div", { class: "result" }, greeting.value ?? "pending")
+      },
+    })
+    const wrapper = mount(Comp)
+    expect(wrapper.find(".result").text()).toBe("pending")
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.find(".result").text()).toBe("delayed")
+  })
+})
+
+describe("provideAtomRuntime / injectAtomRuntime", () => {
+  it("injects a Layer-backed runtime into descendants", async () => {
+    class Greeter extends Context.Tag("test/Greeter")<
+      Greeter,
+      { readonly hello: () => Effect.Effect<string> }
+    >() {}
+
+    const GreeterLive = Layer.succeed(
+      Greeter,
+      { hello: () => Effect.succeed("hello from layer") },
+    )
+
+    const Child = defineComponent({
+      setup() {
+        const runtime = injectAtomRuntime<Greeter>()
+        if (!runtime)
+          throw new Error("expected runtime to be injected")
+
+        const greeting = createAtom(
+          Effect.flatMap(Greeter, g => g.hello()) as Effect.Effect<string, never, Greeter>,
+        )
+        return () => h("div", { class: "result" }, greeting.value ?? "pending")
+      },
+    })
+
+    const Parent = defineComponent({
+      setup() {
+        provideAtomRuntime(GreeterLive)
+        return () => h(Child)
+      },
+    })
+
+    const wrapper = mount(Parent)
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(wrapper.find(".result").text()).toBe("hello from layer")
+  })
+})

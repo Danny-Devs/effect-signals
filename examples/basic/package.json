@@ -1,0 +1,23 @@
+{
+  "name": "@effect-vue/example-basic",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal Vite + Vue 3 demo of effect-vue",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@effect-vue/core": "workspace:*",
+    "effect": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vue-tsc": "catalog:"
+  }
+}
