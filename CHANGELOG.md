@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — handoffs/ archive convention added
+
+### [docs] HANDOFF.md archive pattern
+
+Single HANDOFF.md captures present cursor (regenerated each session); `handoffs/YYYY-MM-DD-{slug}.md` is curated archive of milestone handoffs only. Lossy by default, archive when significant. Git history covers everything not curated.
+
+First archive entry: `handoffs/2026-04-30-slice-2-shipped.md` (this session — slice 2 shipped, ADR layer added, HANDOFF.md invented).
+
+S3 memory updated with the archive convention.
+
 ## [2026-04-30] — HANDOFF.md added as 11th S3 layer + ADR layer
 
 ### [docs] HANDOFF.md introduced — Continuity layer of Swee Spec Stack

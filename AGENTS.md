@@ -15,7 +15,7 @@
 9. **LESSONS.md** — mistakes encoded against (skim for relevant entries; first entry is the R-tracking limitation in createAtom — already FIXED in slice 2)
 10. **specs/*.allium** — behavioral specs for any composable you're touching
 11. **docs/adr/** — architectural decision records
-12. **HANDOFF.md** — current cursor position (where the previous agent left off, what's in flight, what's the immediate next action). **Regeneratable** — overwrite at end of every working session, do not append.
+12. **HANDOFF.md** — current cursor position (where the previous agent left off, what's in flight, what's the immediate next action). **Regeneratable** — overwrite at end of every working session, do not append. Archive milestone handoffs to `handoffs/YYYY-MM-DD-{slug}.md` (curated, not every session). Git history covers everything else.
 
 ## Working rules
 

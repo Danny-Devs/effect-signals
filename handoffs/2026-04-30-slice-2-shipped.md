@@ -1,18 +1,9 @@
 # HANDOFF.md — current cursor position
 
-> **Regeneratable, mutable, present-tense.** Updated (overwritten) at session end. A fresh AI agent or future-Danny reads this AFTER the standard reading order (AGENTS.md → ROADMAP.md → ARCHITECTURE.md → CHANGELOG last 3 → LESSONS.md → relevant Allium specs) and is then fully oriented to pick up the next keystroke.
+> **Regeneratable, mutable, present-tense.** Updated at session end. A fresh AI agent or future-Danny reads this AFTER the standard reading order (AGENTS.md → ROADMAP.md → ARCHITECTURE.md → CHANGELOG last 3 → LESSONS.md → relevant Allium specs) and is then fully oriented to pick up the next keystroke.
 >
-> **Last updated:** 2026-04-30 (end of session that produced commits e6e0960 → 289e93c)
+> **Last updated:** 2026-04-30 (end of session that produced commits e6e0960, 3fc16ef, 85ea10d, 9e4fc7b)
 > **Last updater:** Claude Opus 4.7 (instance was at ~330K tokens, deliberately handed off to preserve fidelity)
-> **Latest archive:** [`handoffs/2026-04-30-slice-2-shipped.md`](./handoffs/2026-04-30-slice-2-shipped.md)
-
-## How handoffs are versioned
-
-- `HANDOFF.md` (this file) is **always the current cursor**, regenerated each session. Most session-ends overwrite it in place; git history (`git log -p HANDOFF.md`) preserves every past version on demand.
-- `handoffs/` is the **curated archive** — milestone handoffs only, NOT every session. Filename: `YYYY-MM-DD-{slug}.md` where slug describes the session's outcome.
-- **Archive when:** end of a slice/milestone, end of a week, before a major architectural pivot, when a blocker is discovered, when the session produced novel insight worth re-reading later.
-- **Don't archive when:** mid-slice tactical handoffs, debugging-only sessions, sessions that just continue work without producing a milestone artifact.
-- Both files coexist intentionally: HANDOFF.md is the live cursor (one file, always fresh); `handoffs/` is the historical record (many files, curated).
 
 ---
 
