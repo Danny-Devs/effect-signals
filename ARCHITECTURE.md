@@ -13,7 +13,7 @@ effect-vue decomposes into eight bounded contexts. Each owns a clear responsibil
 | 1 | **Atoms** | Reactive containers wrapping value/Effect/Stream | `createAtom` |
 | 2 | **Runtime** | Effect runtime + Layer DI bridge | `provideAtomRuntime`, `injectAtomRuntime` |
 | 3 | **Derivations** | Computed-style atom transformations | `deriveAtom` (slice 2) |
-| 4 | **Async ergonomics** | Pending/error/data triple for async sources | `useAsyncAtom` (slice 2) |
+| 4 | **Async ergonomics** | Pending/error/data triple for async sources | `useAsyncAtom` ✅ slice 2 LIVE |
 | 5 | **Families** | Parametric atom factories | `familyAtom` (slice 3) |
 | 6 | **Pattern matching** | Exhaustive view-state matching (Effect.Match → templates) | (investigated in slice 2, may land slice 3+) |
 | 7 | **Messaging** | Cross-component pub/sub on Effect.Hub | (deferred — `@effect-vue/messaging` future) |

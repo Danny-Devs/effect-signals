@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 2: useAsyncAtom + R-preservation in createAtom
+
+### [feat] @effect-vue/core slice 2 shipped
+
+- `useAsyncAtom(effect)` — returns `{ data, error, pending }` reactive ref triple. Typed errors via Effect's `E` channel. Supports R = never, R-with-explicit-runtime, and R-with-injected-runtime overloads (same shape as createAtom).
+- `createAtom` extended with R-preservation overloads — Effects/Streams with requirements R can be passed type-safely (with explicit runtime) or ergonomically (relying on injected runtime). Removes the previous v0.1.0 limitation captured in LESSONS.md.
+- INV-4 (Pending precedes resolved) gets its constitutional witness test — observes every render snapshot and asserts impossible intermediate states never occur.
+- 4 new vitest cases (10 total now passing): success path, typed-failure path, INV-4 witness, Layer-injected runtime.
+- Layer-injection test updated to remove unsound cast — typecheck is clean.
+
+### [docs] specs + lessons updated
+
+- `specs/useAsyncAtom.allium` — first behavioral spec for the async-ergonomics composable
+- `specs/createAtom.allium` — overload table updated with R-preservation overloads
+- `LESSONS.md` — R-tracking lesson marked [FIXED slice 2]
+- `INVARIANTS.md` INV-4 now points to its witness test by name
+- `ARCHITECTURE.md` — context 4 (Async ergonomics) marked LIVE
+
 ## [2026-04-30] — initial bootstrap + slice 1 + spec stack foundation
 
 ### [feat] @effect-vue/core slice 1 shipped

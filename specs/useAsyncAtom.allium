@@ -1,0 +1,86 @@
+composable useAsyncAtom<A, E>(effect: Effect.Effect<A, E>): AsyncAtomState<A, E>
+composable useAsyncAtom<A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+): AsyncAtomState<A, E>
+composable useAsyncAtom<A, E, R>(effect: Effect.Effect<A, E, R>): AsyncAtomState<A, E>
+  # ↑ unsafe overload: relies on injected runtime to satisfy R; runtime error if not provided
+
+# AsyncAtomState shape
+type AsyncAtomState<A, E> = {
+  data: Ref<A | undefined>
+  error: Ref<E | undefined>
+  pending: Ref<boolean>
+}
+
+# Allium behavioral specification for useAsyncAtom
+# package: @effect-vue/core
+# source: packages/core/src/useAsyncAtom.ts
+# invariants: INV-1, INV-2, INV-4, INV-5
+
+PRE
+  - called within a Vue component setup() OR an active effectScope
+  - if R != never and no explicit runtime is passed, an injected runtime providing R must be available via provideAtomRuntime in an ancestor
+
+POST
+  - returns { data, error, pending } — three reactive refs
+  - initially: data === undefined, error === undefined, pending === true
+  - on success: data === A, error === undefined, pending === false (atomic transition)
+  - on typed failure (Effect.fail): data === undefined, error === E, pending === false (atomic transition)
+  - on defect (Cause.die / unhandled exception): pending stays true; defect propagates to fiber error log; user sees console error
+    [v0.1.0 limitation; slice 3 may add defect handling via { defect: Ref<unknown> }]
+
+INVARIANTS
+  - INV-1 (Fiber containment): the underlying fiber is interrupted on effectScope dispose
+  - INV-2 (Type fidelity): data is exactly Ref<A | undefined>, error is exactly Ref<E | undefined>; types never silently widen
+  - INV-4 (Pending precedes resolved): pending starts true; transitions to false EXACTLY ONCE on success or typed failure
+  - INV-5 (Cleanup idempotence): repeated scope disposal is a silent no-op
+
+EFFECTS
+  - spawns ONE fiber that runs the effect through Effect.match (success/failure handlers mutate refs)
+  - registers ONE onScopeDispose handler that calls Fiber.interrupt
+  - mutates exactly two refs per terminal transition (success: data + pending; failure: error + pending)
+
+ERRORS
+  - Effect.fail values: surfaced via error ref (typed)
+  - Effect.die / unhandled exceptions (defects): NOT surfaced; logged to Effect's default logger; pending stays true
+  - injection errors (no runtime when R != never): RUNTIME error on fiber start
+
+OBSERVABILITY (conceptual events — not literally emitted)
+  - asyncAtom.created(effect) at composable invocation
+  - asyncAtom.resolved(value) on success
+  - asyncAtom.failed(typedError) on Effect.fail
+  - asyncAtom.defected(cause) on Cause.die (slice 3)
+  - asyncAtom.disposed on effectScope dispose
+
+EXAMPLES
+  # success path
+  const { data, error, pending } = useAsyncAtom(
+    Effect.succeed("hello").pipe(Effect.delay("100 millis"))
+  )
+  # initially: pending=true, data=undefined, error=undefined
+  # after 100ms: pending=false, data="hello", error=undefined
+
+  # typed failure path
+  const { data, error, pending } = useAsyncAtom(
+    Effect.fail(new Error("boom") as Error).pipe(Effect.delay("100 millis"))
+  )
+  # initially: pending=true, data=undefined, error=undefined
+  # after 100ms: pending=false, data=undefined, error=Error("boom")
+
+  # Layer-injected (typed via runtime parameter)
+  class Greeter extends Context.Tag("app/Greeter")<
+    Greeter,
+    { hello: () => Effect.Effect<string> }
+  >() {}
+  const runtime = provideAtomRuntime(Layer.succeed(Greeter, { hello: () => Effect.succeed("hi") }))
+  const { data } = useAsyncAtom(
+    Effect.flatMap(Greeter, g => g.hello()),
+    runtime,
+  )
+
+NON-GOALS
+  - this composable does NOT support refetching (use Pinia Colada + pinia-colada-effect)
+  - this composable does NOT separate "idle" from "pending" — it's pending from creation until resolved/failed
+  - this composable does NOT auto-retry — wrap the effect with Schedule.retry yourself before passing
+  - this composable does NOT debounce / throttle — wrap the effect with Schedule yourself

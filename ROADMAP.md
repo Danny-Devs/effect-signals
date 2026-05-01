@@ -11,19 +11,24 @@
 - 4 vitest cases passing
 - Bundle: 1.42 kB (gzip 0.52 kB)
 
-### Slice 2 — async ergonomics + derivations + R-tracking fix
+### Slice 2 — async ergonomics + R-tracking fix ✅ SHIPPED 2026-04-30
 
-- Extend `createAtom` overload set to preserve Effect requirements `R` (LESSONS.md 2026-04-30)
-- `deriveAtom(fn)` — computed-style derivations on top of atoms
-- `useAsyncAtom(effect)` — returns `{ data, error, pending }` ref triple for async sources with explicit pending/error states
-- Allium specs for all new composables
-- Property test for INV-4 (pending precedes resolved)
-- Pattern Matching primitive exploration (Effect.Match → template-friendly composable) — investigate but may defer to slice 3+ if scope creeps
+- ✅ Extended `createAtom` overload set to preserve Effect requirements `R` (LESSONS.md fix)
+- ✅ `useAsyncAtom(effect)` — returns `{ data, error, pending }` ref triple
+- ✅ Allium specs added (`useAsyncAtom.allium`, `createAtom.allium` updated)
+- ✅ Witness test for INV-4 (pending precedes resolved with atomic transition)
+- ⏭️ `deriveAtom(fn)` — DROPPED. For plain derivations, use Vue's `computed` directly. An Effect-aware `deriveAtom` (re-runs Effect when reactive deps change) is potentially valuable but defers to slice 3+ if user demand emerges.
+- ⏭️ Pattern Matching — defers to slice 3+ (Effect.Match → template-friendly composable)
+- Bundle: 2.11 kB (gzip 0.67 kB) — under 5 kB ceiling
 
 ### Slice 3 — families + boundaries + DevTools breadcrumbs
 
+### Slice 3 — families + boundaries + Pattern Matching + DevTools breadcrumbs
+
 - `familyAtom(keyFn)` — parametric atom factories (e.g., `userFamily(userId)` returns the same atom for the same userId)
 - `<AtomBoundary>` SFC component for error/loading wrapping
+- Pattern Matching primitive (Effect.Match → template-friendly composable) — investigation moved here
+- Effect-aware `deriveAtom` (if user demand emerges)
 - DevTools breadcrumb hooks (interfaces only — actual panel deferred to `@effect-vue/devtools` Phase 3)
 
 ### Slice 4 — examples + docs + publish

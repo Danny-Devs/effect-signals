@@ -1,6 +1,19 @@
-composable createAtom<A, E>(source: A): Ref<A>
 composable createAtom<A, E>(source: Effect.Effect<A, E>): Ref<A | undefined>
+composable createAtom<A, E, R>(
+  source: Effect.Effect<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+): Ref<A | undefined>
 composable createAtom<A, E>(source: Stream.Stream<A, E>): Ref<A | undefined>
+composable createAtom<A, E, R>(
+  source: Stream.Stream<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+): Ref<A | undefined>
+composable createAtom<A, E, R>(source: Effect.Effect<A, E, R>): Ref<A | undefined>
+  # ↑ unsafe overload: relies on injected runtime to satisfy R; runtime error if not provided
+composable createAtom<A, E, R>(source: Stream.Stream<A, E, R>): Ref<A | undefined>
+  # ↑ same — unsafe overload for Streams with R != never
+composable createAtom<A>(source: A): Ref<A>
+  # ↑ catch-all for plain values (declared LAST so Effect/Stream overloads match first)
 
 # Allium behavioral specification for createAtom
 # package: @effect-vue/core
@@ -68,6 +81,6 @@ NON-GOALS
   - this composable does NOT cache across instances (each call creates a fresh atom)
   - this composable does NOT support transactional updates (out of scope; see future STM exploration)
 
-KNOWN LIMITATIONS (v0.1.0, see LESSONS.md 2026-04-30)
-  - Effects with requirements R != never are not first-class — users must cast at the boundary, OR the Effect must be erased to R = never via Effect.provide before being passed in
-  - Slice 2 will extend overloads to preserve R via an explicit runtime parameter
+KNOWN LIMITATIONS (UPDATED slice 2: R-tracking now first-class)
+  - R-preservation overloads added in slice 2: explicit runtime parameter for type-safe R, plus unsafe overload that relies on injected runtime
+  - The unsafe overload remains because Vue's provide/inject cannot propagate the injected runtime's R at the type level — typed users should pass runtime explicitly

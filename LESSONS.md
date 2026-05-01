@@ -31,4 +31,8 @@ Then `injectAtomRuntime<R>()` becomes typed-tight, and users either pass the run
 
 **For future agents:** when adding any composable that runs Effects, **explicitly model the `R` (requirements) generic parameter** in the type signature. Do not paper over it with casts. The type system is the boundary contract — if it's lying, the contract is broken.
 
+**[FIXED 2026-04-30 — slice 2]** Implemented R-preservation overloads in `packages/core/src/atom.ts` (createAtom) and `packages/core/src/useAsyncAtom.ts`. The Layer-injection test no longer needs the unsound `as Effect.Effect<string, never, Greeter>` cast — typecheck is clean. Two new patterns:
+- *Type-safe*: pass `runtime` explicitly: `createAtom(effect, runtime)` / `useAsyncAtom(effect, runtime)`
+- *Ergonomic*: rely on injected runtime — overload accepts `Effect<A, E, R>` without runtime arg; runtime error if no provider in the tree
+
 ---

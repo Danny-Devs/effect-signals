@@ -1,3 +1,5 @@
 export { createAtom } from "./atom.js"
 export type { AtomSource } from "./atom.js"
 export { injectAtomRuntime, provideAtomRuntime } from "./runtime.js"
+export { useAsyncAtom } from "./useAsyncAtom.js"
+export type { AsyncAtomState } from "./useAsyncAtom.js"

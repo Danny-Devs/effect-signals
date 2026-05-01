@@ -2,7 +2,7 @@ import { mount } from "@vue/test-utils"
 import { Context, Effect, Layer, Stream } from "effect"
 import { describe, expect, it } from "vitest"
 import { defineComponent, h, nextTick } from "vue"
-import { createAtom, injectAtomRuntime, provideAtomRuntime } from "../src/index.js"
+import { createAtom, provideAtomRuntime } from "../src/index.js"
 
 describe("createAtom", () => {
   it("wraps a plain value as a Vue ref", () => {
@@ -83,13 +83,9 @@ describe("provideAtomRuntime / injectAtomRuntime", () => {
 
     const Child = defineComponent({
       setup() {
-        const runtime = injectAtomRuntime<Greeter>()
-        if (!runtime)
-          throw new Error("expected runtime to be injected")
-
-        const greeting = createAtom(
-          Effect.flatMap(Greeter, g => g.hello()) as Effect.Effect<string, never, Greeter>,
-        )
+        // R-tracking overload: createAtom now accepts Effects with requirements R
+        // and relies on the injected runtime to satisfy them.
+        const greeting = createAtom(Effect.flatMap(Greeter, g => g.hello()))
         return () => h("div", { class: "result" }, greeting.value ?? "pending")
       },
     })

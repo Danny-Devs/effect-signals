@@ -32,7 +32,7 @@
 
 **Rationale:** Pending state must be observable before resolution; otherwise loading UIs flicker or never appear.
 
-**Witness:** Vitest assertion in `useAsyncAtom` tests — mount, assert pending state, advance timers, assert resolved state, verify the transition is atomic from a Vue reactivity perspective.
+**Witness:** `packages/core/test/useAsyncAtom.test.ts > "INV-4: pending precedes resolved — atomic transition exactly once"` — collects every render's `pending`/`data` snapshot, asserts the impossible intermediate states (pending=false ∧ data=undefined; pending=true ∧ data=resolved) never occur. Slice 2 (2026-04-30).
 
 ### INV-5: Cleanup idempotence
 **Rule:** Disposing an atom (or a scope containing atoms) more than once is a no-op. Multiple `Fiber.interrupt` calls on the same fiber, or `onScopeDispose` callbacks firing twice, never throw or corrupt state.
