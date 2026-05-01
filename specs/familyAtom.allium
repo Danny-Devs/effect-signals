@@ -1,0 +1,153 @@
+composable familyAtom<K, A, E>(
+  factory: (key: K) => Effect.Effect<A, E>,
+): (key: K) => Ref<A | undefined>
+composable familyAtom<K, A, E, R>(
+  factory: (key: K) => Effect.Effect<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+): (key: K) => Ref<A | undefined>
+composable familyAtom<K, A, E>(
+  factory: (key: K) => Stream.Stream<A, E>,
+): (key: K) => Ref<A | undefined>
+composable familyAtom<K, A, E, R>(
+  factory: (key: K) => Stream.Stream<A, E, R>,
+  runtime: ManagedRuntime.ManagedRuntime<R, never>,
+): (key: K) => Ref<A | undefined>
+composable familyAtom<K, A, E, R>(
+  factory: (key: K) => Effect.Effect<A, E, R>,
+): (key: K) => Ref<A | undefined>
+  # ↑ unsafe overload: relies on injected runtime to satisfy R; runtime error if no provider
+composable familyAtom<K, A, E, R>(
+  factory: (key: K) => Stream.Stream<A, E, R>,
+): (key: K) => Ref<A | undefined>
+  # ↑ same — unsafe overload for Streams with R != never
+composable familyAtom<K, A>(factory: (key: K) => A): (key: K) => Ref<A>
+  # ↑ catch-all for plain values (declared LAST so Effect/Stream overloads match first)
+
+# Allium behavioral specification for familyAtom
+# package: @effect-vue/core
+# source: packages/core/src/familyAtom.ts
+# invariants: INV-1, INV-2, INV-4, INV-5
+
+# ────────────────────────────────────────────────────────────
+# Mental model
+# ────────────────────────────────────────────────────────────
+#
+# `familyAtom` is the parametric counterpart to `createAtom`. Where `createAtom`
+# produces ONE atom from ONE source, `familyAtom` produces a FACTORY that
+# produces atoms from a key. The same key always returns the same atom.
+#
+# Inspired by `Atom.family` in @effect-atom/atom-react. Vue version differs
+# in two ways: (a) the runtime is captured once at family-creation time, and
+# (b) all cached atoms share the family's parent scope, NOT each call-site's
+# scope. This makes `family(k)` safe to call from event handlers, watchers,
+# or any non-setup() context.
+
+PRE
+  - called within a Vue component setup() OR an active effectScope
+  - if R != never and no explicit runtime is passed, an injected runtime providing R must be available
+    via provideAtomRuntime in an ancestor AT THE MOMENT familyAtom IS CALLED (NOT later when family(k) is called)
+
+POST
+  - returns a function `(key: K) => Ref<A | undefined>` (or `Ref<A>` for plain-value factories)
+  - calling the returned function with the same key MUST return the same Ref instance (reference equality)
+  - calling with a new key creates a fresh atom (factory is invoked once per distinct key)
+  - the returned function is safe to call OUTSIDE setup() — runtime and scope are resolved at familyAtom time, not at call time
+
+INVARIANTS
+  - INV-1 (Fiber containment): every fiber spawned for a cached atom is interrupted when the family's parent scope disposes
+  - INV-2 (Type fidelity): the cached Ref's value type is exactly what factory(key) would have produced via createAtom directly
+  - INV-4 (Pending precedes resolved): for async factories, .value === undefined before first emission; transitions atomically
+  - INV-5 (Cleanup idempotence): repeated parent-scope disposal is a silent no-op
+
+EFFECTS (at familyAtom call time)
+  - captures the currently-active effectScope (via getCurrentScope())
+  - resolves the runtime once: runtimeOverride ?? injectAtomRuntime<R>()
+  - allocates an internal Map<K, Ref> for caching
+  - registers ZERO fibers and ZERO onScopeDispose handlers at this point — those happen lazily per-key
+
+EFFECTS (at family(key) call time, on cache MISS)
+  - invokes factory(key) to get the source
+  - for plain-value source: stores ref(value) in cache, NO fiber spawned
+  - for Effect source: spawns ONE fiber via captured-runtime.runFork (or Effect.runFork if no runtime),
+    registers ONE onScopeDispose with the captured parent scope
+  - for Stream source: spawns ONE fiber that runs Stream.runForEach, registers ONE onScopeDispose with parent scope
+  - mutates the cached Ref asynchronously as the source produces values
+
+EFFECTS (at family(key) call time, on cache HIT)
+  - returns the cached Ref directly — factory is NOT re-invoked, no new fiber spawned
+  - this is the whole point of the family
+
+KEY EQUALITY
+  - the internal cache uses JavaScript Map semantics: SameValueZero equality
+  - primitives (string, number, boolean, bigint, symbol) compared by value
+  - objects compared by reference identity
+  - users wanting structural equality must wrap their factory:
+      const inner = familyAtom(serializedKey => factory(parse(serializedKey)))
+      const wrapped = (key) => inner(JSON.stringify(key))
+
+ERRORS
+  - if no scope is active when familyAtom is called: family(k) still works but cleanup is NOT registered
+    (matches createAtom's loose semantic; document as known limitation, do not throw)
+  - if R != never, no runtime is injected, and unsafe overload is used: runtime error on first family(key) call
+    (NOT at familyAtom call time — Effect.runFork fails when it tries to satisfy R)
+  - if the factory throws synchronously: the throw propagates from family(key); the cache is NOT populated for that key
+
+OBSERVABILITY (conceptual events — not literally emitted)
+  - family.created(factory) at familyAtom invocation
+  - family.member.created(key) at first family(key) call (cache miss)
+  - family.member.cached(key) at subsequent family(key) calls (cache hit)
+  - family.member.resolved(key, value) per emission
+  - family.disposed at parent-scope dispose (interrupts all members)
+
+EXAMPLES
+  # Effect-based family — user profile atoms keyed by userId
+  class UserService extends Context.Tag("app/UserService")<
+    UserService,
+    { fetchUser: (id: string) => Effect.Effect<User> }
+  >() {}
+
+  const userFamily = familyAtom((userId: string) =>
+    Effect.flatMap(UserService, s => s.fetchUser(userId))
+  )
+
+  const alice = userFamily("alice-123")        # cache miss → spawns fiber
+  const aliceAgain = userFamily("alice-123")   # cache hit → same Ref instance
+  expect(alice === aliceAgain).toBe(true)
+
+  const bob = userFamily("bob-456")            # cache miss → spawns separate fiber
+  expect(alice === bob).toBe(false)
+
+  # Stream-based family — live ticker per symbol
+  const tickerFamily = familyAtom((symbol: string) =>
+    Stream.repeatEffect(fetchPrice(symbol)).pipe(Stream.schedule(Schedule.spaced("1 seconds")))
+  )
+
+  const sui = tickerFamily("SUI")
+  const btc = tickerFamily("BTC")
+
+  # Plain-value family — derived static values
+  const labelFamily = familyAtom((id: number) => `item-${id}`)
+  const label = labelFamily(42)
+  # label.value === "item-42" immediately
+
+  # Type-safe runtime parameter (R != never)
+  const runtime = provideAtomRuntime(UserServiceLive)
+  const safeFamily = familyAtom(
+    (id: string) => Effect.flatMap(UserService, s => s.fetchUser(id)),
+    runtime,
+  )
+
+NON-GOALS
+  - this composable does NOT support manual eviction (no family.evict(key)) — out of scope for v0.1.0
+  - this composable does NOT support LRU/TTL bounded caches — unbounded by design; users scope families to
+    component lifetimes if memory is a concern
+  - this composable does NOT support structural key equality — users wrap their factory to serialize keys
+  - this composable does NOT support refetching cached atoms (use Pinia Colada + pinia-colada-effect)
+  - this composable does NOT separate "idle" from "pending" — same as createAtom
+
+KNOWN LIMITATIONS
+  - Cache is unbounded. A long-lived family with many distinct keys will grow indefinitely until parent scope disposes.
+  - The unsafe (R-injected, no explicit runtime) overload only works when familyAtom is called inside setup() —
+    the runtime lookup happens AT familyAtom CALL TIME, not at family(key) call time.
+  - If familyAtom is called outside any active scope (e.g., at module top level), no cleanup is registered.
+    Cached fibers will run until the page unloads.

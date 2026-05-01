@@ -78,6 +78,34 @@ Vue DevTools panel.
 - v1.0.0 — `@effect-vue/core` API frozen. Semver from this point.
 - New packages (`devtools`, etc.) version independently.
 
+## Strategic context
+
+These are durable insights that inform the roadmap but aren't roadmap items. Migrated here from HANDOFF.md (April 30 2026) because they would otherwise vanish on the next handoff overwrite.
+
+### Vue Vapor compatibility
+
+`effect-vue` uses ONLY composition API + reactivity primitives. Forward-compatible with Vapor by construction. No work required when Vapor goes GA. Verify by ensuring INV-9 (no VDOM-specific imports in core) holds in CI.
+
+### Performance characteristics in Vapor
+
+In a Vapor app, every reactive primitive becomes a fine-grained signal. Atoms are first-class signals — atom updates trigger only the specific DOM nodes that read them, not entire component subtrees. **`effect-vue` perf characteristics improve in Vapor**, not regress. Strategic upside for marketing/positioning.
+
+### YouTube content angle (v0.1.0 launch)
+
+"Why effect-vue is smaller and clearer than effect-react" — the Vue port is architecturally cleaner because Vue's push-based reactivity aligns with Effect's push-based runtime, while React's snapshot-rerender model fights it. Use this framing for the v0.1.0 launch post and the YouTube video.
+
+### Bet on Effect-TS adoption curve
+
+Effect-TS is gaining mainstream momentum in 2026. When it crosses the chasm (~2027), `effect-vue` is the natural Vue bridge that's already there. Timing is good — first-mover position with no Vue+Effect competitors as of April 2026.
+
+### Sibling ecosystem (separate repos, NOT under @effect-vue scope)
+
+- `pinia-colada-effect` — Effect-flavored Pinia Colada bridge
+- `pinia-colada-effect-storage` — IDB / OPFS / SQLite-WASM as Effect Layers
+- `@dannydevs/dapp-kit-vue` — Sui dapp-kit dogfoods effect-vue
+
+These consume effect-vue but are not part of its scope. See ADR-0002 and PRINCIPLES.md item 12.
+
 ## Anti-roadmap (things explicitly NOT planned)
 
 - React, Solid, Svelte, Angular bindings (separate projects, separate maintainers)
