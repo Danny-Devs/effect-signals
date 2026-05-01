@@ -2,7 +2,51 @@
 
 All notable changes to this project will be documented here. Append-only.
 
-## [2026-04-30] — slice 4 continues: README polish + `effect-vue` meta-package
+## [2026-05-01] — slice 4 Tier-1 publish-readiness complete
+
+### [chore] vue-tsc catalog bump 2.x → 3.2.7
+
+- Catalog `vue-tsc` bumped from `^2.1.0` (resolved 2.2.12) to `^3.2.0` (resolved 3.2.7). Resolves the long-standing `pnpm install` peer-dep warning where `tsdown 0.21.10 → rolldown-plugin-dts 0.23.2` wanted vue-tsc `~3.2.0` but the catalog pinned 2.x.
+- All 34 tests pass, typecheck clean, build identical (4.61 kB raw / 1.26 kB gzip — bundle did not drift).
+- The slot-scope generic propagation guarantee from ADR-007 was sabotage-verified end-to-end against vue-tsc 3.x: replacing `data.items.join(", ")` with `data.nonExistentField.toUpperCase()` in `examples/basic/src/App.vue` produces the same precise type error vue-tsc 2.x produced (`Property 'nonExistentField' does not exist on type '{ items: string[]; }'`). The volar 2 rewrite preserved AtomBoundary's SFC generic surface; ADR-007's discipline (use blessed `<script setup generic>` syntax rather than ad-hoc casts) is what made this upgrade risk-free.
+
+### [feat] INV-10 mechanical witness shipped — `scripts/verify-published-tarball.mjs`
+
+- Per INVARIANTS.md INV-10's spec, machine-checked: `pnpm pack` each package, extract the published `package.json`, assert (a) `effect` + `vue` are in `peerDependencies` and NOT in `dependencies`, and (b) no `node_modules/effect/` or `node_modules/vue/` paths appear in the tarball file list.
+- Wired into each package's `prepublishOnly` script — runs automatically before any `npm publish`. Workspace-level `pnpm verify:tarballs` exposes it for ad-hoc + CI use.
+- Sabotage-proven: temporarily added `vue` to `@effect-vue/core`'s `dependencies` block and confirmed the witness fails with `[INV-10] FAIL @effect-vue/core: 'vue' present in dependencies (must be peer only)` and exit code 1. Restored.
+- Promoted INV-10 from doc-only to mechanical in `INVARIANTS.md` — witness line now points at the script and describes the exact assertions.
+
+### [test] Fresh-install dogfood — both packages
+
+- `/tmp/effect-vue-fresh-core/` — minimal consumer project with the packed `effect-vue-core-0.1.0.tgz` + `vue` + `effect` from npm. `test.ts` imports every public symbol (`createAtom`, `AtomBoundary`, `familyAtom`, `injectAtomRuntime`, `provideAtomRuntime`, `useAsyncAtom`, `useMatch`, `AsyncAtomState`, `AtomSource`) and binds each through `void (() => { ... })()` blocks so plain `tsc --noEmit` (strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes) verifies the published types resolve. Sabotage-proven by changing `const _v: number = aPlain.value` to `const _v: string`; tsc fails with `Type 'number' is not assignable to type 'string'`. Restored.
+- `/tmp/effect-vue-fresh-meta/` — same dogfood but importing from `effect-vue` (the bare-name meta-package). Required `pnpm.overrides` to redirect `@effect-vue/core@^0.1.0` to the local tarball during pre-publish testing (the registry doesn't have it yet). After publish, the override is no longer needed; the meta-package will resolve `@effect-vue/core` from npm normally. Sabotage-proven identically.
+- The dogfood caught one real surprise: `AsyncAtomState<A, E>` is the `{ data, error, pending }` ref triple itself, not a discriminated-union wrapper around it — visible only when consuming the public API the way users will. Test corrected. This is exactly the failure mode the dogfood done-criteria was added to catch (LESSONS.md, slice 3).
+
+### [chore] Repository URL fix — `dannydevs` → `Danny-Devs`
+
+- Both packages' `package.json` `homepage` and `repository.url` fields were pointing at `https://github.com/dannydevs/effect-vue` (no hyphen — a different GitHub user). Corrected to `https://github.com/Danny-Devs/effect-vue` (the actual `gh auth status` user). Also added `bugs` field linking to `/issues`. Standardized `repository.url` to canonical `git+https://...git` form.
+
+### [chore] Meta-package dep semantics — `workspace:*` → `workspace:^`
+
+- `packages/effect-vue/package.json` previously depended on `@effect-vue/core: workspace:*`, which pnpm rewrites to the exact version (`0.1.0`) on publish. That made every patch release require both packages to bump together. Switched to `workspace:^`, which rewrites to `^0.1.0` — patch updates of core flow to consumers automatically; only minor/major bumps require a paired meta-package release.
+- Tarball inspection confirms the rewrite: `tar -xOzf effect-vue-0.1.0.tgz package/package.json` shows `"@effect-vue/core": "^0.1.0"` in the published manifest.
+
+### [chore] CI workflow extended — INV-10 step + examples/basic dogfood
+
+- `.github/workflows/ci.yml` gained `pnpm verify:tarballs` (INV-10 mechanical witness) and the `examples/basic` typecheck + build steps (slice-3 dogfood done-criteria). Lint moved earlier in the chain so it fails fast.
+- Added `permissions: contents: read` (least-privilege default; reduces blast radius if any future workflow gets a token).
+
+### [docs] Roadmap + INVARIANTS housekeeping
+
+- `ROADMAP.md` slice 4 updated to reflect actual state: `examples/basic` shipped, `examples/nuxt-ssr` deferred to Phase 2 (alongside `@effect-vue/nuxt` package itself), README polish shipped, meta-package shipped, Tier-1 publish-readiness complete.
+- `INVARIANTS.md` INV-10 witness pointer now references the actual script.
+
+### Publish-day note (for future agents reading this CHANGELOG)
+
+The meta-package's pre-publish dogfood uses `pnpm.overrides` to short-circuit `@effect-vue/core@^0.1.0` to the local tarball. **After core is published to npm, this override is unnecessary** — the meta-package resolves core from the registry like any other dependency. The recommended publish order is therefore: (1) publish `@effect-vue/core@0.1.0` first, (2) verify it resolves (`pnpm view @effect-vue/core`), (3) publish `effect-vue@0.1.0` second. The `prepublishOnly` hook on each package runs the INV-10 witness before either publish proceeds.
+
+
 
 ### [docs] README polish — install, quick-start, 6-composable table, examples link
 

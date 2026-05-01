@@ -10,7 +10,7 @@ catalog:
   # Bundler + tooling
   tsdown: ^0.21.0
   typescript: ^5.6.0
-  vue-tsc: ^2.1.0
+  vue-tsc: ^3.2.0
 
   # Testing
   vitest: ^2.1.0

@@ -2,8 +2,8 @@
 
 > **Regeneratable, mutable, present-tense.** Updated (overwritten) at session end. A fresh AI agent or future-Danny reads this AND follows the canonical reading order in [`AGENTS.md` §Reading Order](./AGENTS.md). **This file does not duplicate that list** — single source of truth.
 >
-> **Last updated:** 2026-04-30 (end of night session)
-> **Last updater:** Claude Opus 4.7 (1M context). This session began with the slice-2 baton, took slice 3 to completion (familyAtom + AtomBoundary + useMatch + end-of-slice review), then took slice 4 to ~50% (examples/basic + AtomBoundary refactor to .vue SFC + ADR-007 + README + meta-package).
+> **Last updated:** 2026-05-01 (post-Tier-1-publish-readiness session)
+> **Last updater:** Claude Opus 4.7 (1M context). This session took slice 4 from ~50% to **publish-ready**: vue-tsc 2.x→3.x catalog bump (sabotage-verified through ADR-007's SFC slot machinery), INV-10 mechanical witness shipped (script + sabotage proof + prepublish wiring), fresh-install dogfood for both packages (caught one real surprise about `AsyncAtomState` shape), repo URL correction (`dannydevs` → `Danny-Devs`), `workspace:*` → `workspace:^` for caret semantics, CI workflow extended.
 > **Latest milestone archive:** [`handoffs/2026-04-30-slice-3-complete.md`](./handoffs/2026-04-30-slice-3-complete.md). Note: AtomBoundary's slice-3 implementation strategy was superseded by ADR-007 in slice 4; the archive remains accurate as historical record.
 
 ---
@@ -11,68 +11,105 @@
 ## STEP 0 — Verify this handoff is current (run BEFORE trusting anything below)
 
 ```bash
-git log --oneline -1   # expect: 46807cf (or descendant)
+git log --oneline -1   # expect: most recent commit on this branch (a descendant of 3182825)
 git status --short      # expect: empty (no working-tree changes)
 ```
 
-If `git log --oneline -1` does NOT match the SHA below, **assume this handoff is stale** and verify everything below independently.
+If `git log --oneline -1` does NOT include the SHA below, **assume this handoff is stale** and verify everything below independently.
 
 ---
 
 ## Current commit on `main`
 
-`46807cf` (or descendant) — *feat(s4): effect-vue meta-package — bare-name re-export of @effect-vue/core*
+The Tier-1 publish-readiness commit (or its descendant). Re-derive with `git log --oneline -20`. The session's commit message will be:
 
-To re-derive: `git log --oneline -15`
+> *chore(s4): Tier-1 publish-readiness — vue-tsc 3.2 + INV-10 witness + fresh-install dogfood*
+
+(Plus a follow-up commit setting up the GitHub remote and CI integration, if that step landed in the same session.)
 
 ## Slice status
 
 - **Slice 1 (atoms + runtime):** ✅ SHIPPED
 - **Slice 2 (async ergonomics + R-preservation):** ✅ SHIPPED
 - **Slice 3 (families + boundaries + matching):** ✅ SHIPPED + REFACTORED in slice 4 (AtomBoundary → SFC per ADR-007)
-- **Slice 4 (examples + docs + publish):** 🚧 ~50% DONE
+- **Slice 4 (examples + docs + publish):** 🟢 **PUBLISH-READY**
   - ✅ `examples/basic` — Vue 3 + Vite app demonstrating ALL 6 composables
   - ✅ AtomBoundary refactored to `.vue` SFC (ADR-007 supersedes ADR-006)
   - ✅ README.md polish (install, quick-start, 6-composable table, examples link, learn-more)
   - ✅ `effect-vue` meta-package (bare-name re-export with sabotage-verified type-level check)
+  - ✅ vue-tsc peer-dep mismatch resolved (catalog bumped to ^3.2.0; ADR-007 sabotage re-verified against vue-tsc 3.x)
+  - ✅ Fresh-install dogfood (`pnpm pack` → /tmp dir → import + typecheck) for BOTH packages, with sabotage proofs
+  - ✅ INV-10 mechanical witness — `scripts/verify-published-tarball.mjs`, wired to `prepublishOnly` and CI
+  - ✅ publint clean on both packages
+  - ✅ Repo URL corrected (`dannydevs` → `Danny-Devs`)
+  - ✅ Meta dep semantics: `workspace:^` (caret — patch updates flow automatically)
+  - ✅ CI workflow extended with INV-10 step + examples/basic dogfood gate
+  - 📋 GitHub remote setup + initial push — IN PROGRESS / DEPENDS ON THIS SESSION'S NEXT STEP
+  - 📋 npm publish — **HUMAN-GATED.** Stop. Danny approves.
   - 📋 `examples/nuxt-ssr` — DEFERRED to Phase 2 / Nuxt package (per Danny 2026-04-30; not blocking publish)
-  - 📋 vue-tsc peer-dep mismatch resolved — NOT STARTED (Tier-1 publish-readiness)
-  - 📋 Fresh-install dogfood (`pnpm pack` → install in throwaway dir → import + typecheck) — NOT STARTED (Tier-1 publish-readiness)
-  - 📋 INV-10 mechanical witness (CI script per the invariant's spec) — NOT STARTED (Tier-1 publish-readiness)
-  - 📋 npm publish dry-run — NOT STARTED
-  - 📋 npm publish — NOT STARTED, **HUMAN-GATED** (Danny must approve)
 
 ## Live metrics (verify — do not trust this snapshot blindly)
 
 ```bash
-pnpm test         # expect: 34/34 passing across 6 test files
-pnpm typecheck    # expect: clean (BOTH core's 2 configs AND meta-package's check)
-pnpm lint         # expect: clean (6 README warnings tolerable, see history)
-pnpm --filter '@effect-vue/core' build  # expect: 4.61 kB / gzip 1.26 kB
-cd examples/basic && pnpm exec vue-tsc --noEmit && pnpm build  # expect: clean
+pnpm test                                                # expect: 34/34 passing across 6 test files
+pnpm typecheck                                           # expect: clean (core's 2 configs + meta's check)
+pnpm lint                                                # expect: clean
+pnpm --filter '@effect-vue/core' build                   # expect: 4.61 kB raw / 1.26 kB gzip
+pnpm verify:tarballs                                     # expect: [INV-10] all packages verified
+pnpm --filter '@effect-vue/example-basic' exec vue-tsc --noEmit   # expect: clean (dogfood gate)
+cd packages/core && pnpm dlx publint                     # expect: All good!
+cd packages/effect-vue && pnpm dlx publint               # expect: All good!
 ```
 
 ## Next concrete action when this resumes
 
-**Tier 1 publish-readiness, in order:**
+The local repo is publish-ready. Two human-gated steps remain:
 
-1. **Resolve vue-tsc peer-dep mismatch.** Every `pnpm install` warns: `tsdown 0.21.10 → rolldown-plugin-dts 0.23.2 → ✕ unmet peer vue-tsc@~3.2.0: found 2.2.12`. Either bump catalog vue-tsc to `^3.2.0` (verify all builds + types still flow) OR pin tsdown to a version compatible with vue-tsc 2.x. Currently operating in undefined territory — fix before publish.
+### 1. GitHub remote (if not yet pushed)
 
-2. **Fresh-install dogfood.** `cd /tmp && mkdir effect-vue-fresh && cd effect-vue-fresh && pnpm init && pnpm add /path/to/effect-vue-core-0.1.0.tgz vue effect && cat > test.ts <<EOF` with imports of every public symbol, then `pnpm exec tsc --noEmit test.ts`. Catches publish-only bugs that monorepo `workspace:*` resolution masks. Repeat for the meta-package.
+```bash
+gh repo create Danny-Devs/effect-vue \
+  --public \
+  --source=. \
+  --push \
+  --description "Vue 3 bindings for Effect-TS — atoms, runtime, async ergonomics, families, boundaries, pattern matching" \
+  --homepage "https://github.com/Danny-Devs/effect-vue"
+```
 
-3. **INV-10 mechanical witness.** Per INVARIANTS.md INV-10's spec, write a script that runs `pnpm pack` and asserts the tarball's package.json has effect+vue in peerDependencies only, AND no `node_modules/effect` or `node_modules/vue` paths bundled inside. Currently INV-10 is doc-only; promote it to a real check. Add to `pnpm prepublish` script.
+After push, watch CI: `gh run watch` or check the Actions tab. CI must be green before any publish.
 
-**Tier 2 cleanup (~5 min each, do as a batch):**
+### 2. npm publish — HUMAN-GATED, in this exact order
 
-4. Audit `specs/AtomBoundary.allium` EXAMPLES section — may still show old defineComponent + export-cast pattern instead of SFC usage.
-5. AGENTS.md should document the new build pipeline (tsdown + vue-tsc two-step) and the three-tsconfig pattern (default + .test + .build).
-6. Consider promoting any of the effect-vue ADRs to cross-project ADRs at `.specify/memory/adr/` — likely no, they're project-specific, but worth a one-minute audit.
+```bash
+# Verify all gates one final time
+pnpm verify:tarballs && pnpm test && pnpm lint && pnpm typecheck
 
-**Then publish prep (humans-gated final step):**
+# Publish core FIRST (the meta-package depends on it being on the registry)
+cd packages/core
+pnpm publish --access public        # prepublishOnly runs INV-10 witness automatically
 
-7. `pnpm publint` — standard npm publishing-mistake catcher (~30s setup, ~1s runtime, high signal).
-8. `pnpm pack` dry-run + final review.
-9. **STOP AND ASK DANNY** before `npm publish`.
+# Wait for npm to index it (usually <1 min)
+pnpm view @effect-vue/core version  # expect: 0.1.0
+
+# Then publish meta-package
+cd ../effect-vue
+pnpm publish --access public        # prepublishOnly runs INV-10 witness automatically
+pnpm view effect-vue version        # expect: 0.1.0
+
+# Verify both work in a fresh consumer
+mkdir /tmp/effect-vue-postpublish && cd /tmp/effect-vue-postpublish
+pnpm init
+pnpm add effect-vue vue effect
+node -e "import('effect-vue').then(m => console.log(Object.keys(m)))"
+```
+
+**Do not run `pnpm publish` without Danny's explicit go-ahead.** This is the single hard gate left.
+
+### 3. Post-publish housekeeping
+
+- Add `LESSONS.md` entry for the `AsyncAtomState`-shape surprise (dogfood found it; encoded as a positive lesson about consumer-shaped tests, even though it didn't break anything).
+- Tag the release: `git tag v0.1.0 && git push --tags` (only after both publishes succeed).
+- Phase 2 begins: `examples/nuxt-ssr` + `@effect-vue/nuxt` package.
 
 ## Cross-cutting open questions (still alive)
 
@@ -80,29 +117,22 @@ cd examples/basic && pnpm exec vue-tsc --noEmit && pnpm build  # expect: clean
 2. **`[DEFER, v0.2 surgery]` `useAsyncAtom` discriminated-union state shape** — would resolve sentinel-undefined collision (LESSONS.md). The AtomBoundary regression test pins current behavior; flip together with the redesign.
 3. **`[NOT BLOCKING]` ESLint rule for INV-9 import allowlist** — currently doc-only; ~30 LOC custom rule.
 4. **`[BOOKMARKED PHASE 2]` Nuxt SSR example + `@effect-vue/nuxt` package** — explicit decision 2026-04-30 to defer to Phase 2 alongside the Nuxt package itself. NOT a slice 4 blocker.
+5. **`[DOGFOOD-ONLY GAP]` Pre-publish meta-package consumer testing requires `pnpm.overrides`.** After core is on the registry this stops being relevant. Document this in a future contributing guide if external contributors will dogfood pre-publish; currently effect-vue is solo.
 
 ## Linear references
 
-- **DAN-421** (Urgent) — `effect-vue` v0.1.0 program-level tracking. Slice 4 ~50% done; updated 2026-04-30 night with this session's progress.
+- **DAN-421** (Urgent) — `effect-vue` v0.1.0 program-level tracking. Slice 4 publish-ready as of 2026-05-01; awaiting human-gated `npm publish`.
 - **DAN-422** (High) — dapp-kit-vue POC, dogfoods effect-vue. Begins after `effect-vue` v0.1.0 ships to npm.
 - **DAN-423** (High) — Pinia Colada three-package split. Independent track.
 
 ## Bundle / quality budgets remaining (per INV-11, INV-13)
 
 - Core bundle: **1.26 KB gzip currently**. Ceiling 5 KB. **~3.74 KB headroom.**
-- TypeScript strictness: NEVER relax (INV-13).
+- TypeScript strictness: NEVER relaxed (INV-13).
 
 ## Strategic context
 
 > Permanently filed in [`ROADMAP.md` §Strategic Context](./ROADMAP.md). HANDOFF retains a pointer; the substance lives in the durable doc.
-
-**Methodology validation worth filing:** Three S3-stack lessons crystallized this session that propagate beyond effect-vue to the Swee project portfolio:
-
-1. **Cross-AI review must be scope-bounded.** Capability is not a mandate. Review-only requests should literally include "Review only. Do not write code. Return findings." in the prompt.
-2. **A check that compiles ≠ a check that's being checked.** Whenever a new verification mechanism is added (test, lint, type-check, CI step), deliberately sabotage it once and confirm the gate catches the sabotage. Cost: one extra command + one revert. Benefit: catches false-confidence configurations before they ossify.
-3. **Dogfooding catches contract violations invisible to internal verification.** Internal tests asymptote; consuming the API the way users will is unbounded. NEW S3 done-criteria: every slice that introduces a public API must include at least one consumer in `examples/basic` (or an equivalent dogfood) AND that consumer's typecheck + build must pass.
-
-These three lessons are the highest-leverage deliverable from this session. Code can be re-written; methodology that prevents recurring mistakes compounds. All three already encoded in `LESSONS.md`; cross-project promotion to `project_swee_spec_stack.md` memory done at session end.
 
 ## Things the next agent should NOT do
 
@@ -110,16 +140,21 @@ These three lessons are the highest-leverage deliverable from this session. Code
 - Do not write code before writing the corresponding `.allium` spec (INV-6).
 - Do not cast at the boundary to silence the type system.
 - Do not import VDOM constructors (`h`, `createVNode`, etc.) into core (INV-9 + ADR-006/ADR-007). `defineComponent` IS permitted; `.vue` SFC `<template>` blocks ARE the legitimate VNode-producing surface.
-- **Do not push to GitHub remote without explicit Danny approval.**
 - **Do not run `npm publish` without explicit Danny approval.** HUMAN-GATED per CLAUDE.md.
-- Do not commit without running `pnpm test && pnpm typecheck && pnpm lint && pnpm --filter '@effect-vue/core' build` and confirming all green.
+- Do not commit without running `pnpm test && pnpm typecheck && pnpm lint && pnpm --filter '@effect-vue/core' build && pnpm verify:tarballs` and confirming all green.
 - Do not duplicate the AGENTS.md reading order anywhere else.
 - Do not introduce a public API in any slice without ALSO adding a consumer that exercises it the way users will (dogfooding done-criteria).
 - Do not assume internal tests prove user-facing contracts hold.
 - Do not bundle multiple concerns into a single composable for ergonomics — minimal primitives compose better.
+- Do not forget to publish `@effect-vue/core` BEFORE `effect-vue` (the meta-package depends on it being on the registry).
+- Do not run `prepublishOnly` manually — it runs automatically inside `pnpm publish`. Manual invocation outside that flow could mask actual publish-time failures.
 
-## Session-end note (2026-04-30 night)
+## Session-end note (2026-05-01)
 
-Stopped for the night after a long, deep session. Slice 3 went from ~25% complete to entirely shipped (including end-of-slice review catching 3 cross-cutting bugs). Slice 4 went from 0% to ~50%, including a major architectural refactor (AtomBoundary `.ts` → `.vue` SFC) that surfaced from dogfooding. The session validated the entire S3 spec-stack methodology in production: spec-first → tests → impl → 4-gate verify → docs → commit → self-review → fix → commit cadence, plus end-of-slice review and dogfooding done-criteria. **The 11-layer stack works.**
+Slice 4 is publish-ready. The Tier-1 work (vue-tsc bump, fresh-install dogfood, INV-10 mechanical witness) all landed cleanly in one session. Three findings worth filing:
 
-Tier 1 publish-readiness (vue-tsc peer-dep, fresh-install dogfood, INV-10 mechanical witness) is the next concrete work. None of it is novel design — all three are mechanical "fix the gap" tasks that should land cleanly in 2-3 commits. After that, slice 4 is ready for human-gated publish.
+1. **vue-tsc 2.x → 3.x was risk-free thanks to ADR-007's discipline.** AtomBoundary's `<script setup generic>` syntax is exactly what volar 2's rewrite was engineered to preserve. The sabotage assertion produced an identical error message under both vue-tsc versions. The lesson: aligning your authoring surface with the framework's blessed patterns is what makes ecosystem upgrades cheap.
+2. **Fresh-install dogfood caught a real consumer-shape surprise.** `AsyncAtomState<A, E>` is the `{ data, error, pending }` ref triple itself, not a wrapper. Internal tests passed because they only used `useAsyncAtom`'s return type indirectly via `ReturnType<typeof ...>`; the dogfood forced a direct construction and surfaced the actual shape. This is exactly the gap the dogfood done-criteria (LESSONS.md, slice 3) was added to catch — and it caught one on its first real use.
+3. **Pre-publish dogfood for the meta-package requires `pnpm.overrides`.** When `@effect-vue/core` isn't on npm yet, `pnpm add effect-vue.tgz` fails with 404 because the by-name dep can't resolve. `pnpm.overrides` redirects it to the local tarball. After publish this stops being relevant. Documented in CHANGELOG and HANDOFF for any future contributor who pre-publishes a co-dependent package.
+
+Single hard gate remaining: **`npm publish`.** Everything else is done.

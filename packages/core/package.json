@@ -5,12 +5,13 @@
   "description": "Vue 3 bindings for Effect-TS — atoms, runtime, composables",
   "author": "Danny Ahn",
   "license": "MIT",
-  "homepage": "https://github.com/dannydevs/effect-vue#readme",
+  "homepage": "https://github.com/Danny-Devs/effect-vue#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dannydevs/effect-vue.git",
+    "url": "git+https://github.com/Danny-Devs/effect-vue.git",
     "directory": "packages/core"
   },
+  "bugs": "https://github.com/Danny-Devs/effect-vue/issues",
   "keywords": ["effect", "effect-ts", "vue", "vue3", "reactivity", "composables"],
   "exports": {
     ".": {
@@ -25,6 +26,7 @@
   "scripts": {
     "build": "tsdown && vue-tsc -p tsconfig.build.json",
     "dev": "tsdown --watch",
+    "prepublishOnly": "node ../../scripts/verify-published-tarball.mjs packages/core",
     "typecheck": "vue-tsc --noEmit && vue-tsc -p tsconfig.test.json --noEmit"
   },
   "peerDependencies": {

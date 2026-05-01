@@ -78,7 +78,7 @@
 
 `devDependencies` may include `effect` and `vue` for the package's own tests and typechecking — this is fine because devDependencies are not installed by consumers. The boundary that matters is the published tarball.
 
-**Witness:** CI script that runs `pnpm pack` and asserts the resulting tarball's `package.json` has `effect` and `vue` in `peerDependencies` only, AND that no `node_modules/effect` or `node_modules/vue` paths are bundled inside the tarball.
+**Witness:** `scripts/verify-published-tarball.mjs` — packs each package via `pnpm pack`, extracts the published `package.json` from the tarball, and asserts (a) `effect` + `vue` are in `peerDependencies` and NOT in `dependencies`, and (b) no `node_modules/effect/` or `node_modules/vue/` paths appear in the tarball file list. Wired to each package's `prepublishOnly` script so it runs before any `npm publish` invocation, and exposed at the workspace root as `pnpm verify:tarballs` for ad-hoc + CI use.
 
 ## Tier 3 — Quality SLOs (monitored, may drift)
 

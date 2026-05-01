@@ -15,6 +15,7 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "verify:tarballs": "node scripts/verify-published-tarball.mjs",
     "example:basic": "pnpm --filter @effect-vue/example-basic dev",
     "prepare": "simple-git-hooks"
   },
