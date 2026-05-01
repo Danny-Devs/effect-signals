@@ -1,0 +1,73 @@
+composable createAtom<A, E>(source: A): Ref<A>
+composable createAtom<A, E>(source: Effect.Effect<A, E>): Ref<A | undefined>
+composable createAtom<A, E>(source: Stream.Stream<A, E>): Ref<A | undefined>
+
+# Allium behavioral specification for createAtom
+# package: @effect-vue/core
+# source: packages/core/src/atom.ts
+# invariants: INV-1, INV-2, INV-4, INV-5
+
+PRE
+  - called within a Vue component setup() OR an active effectScope
+  - if source is Effect or Stream, the surrounding effectScope MAY have a runtime injected via provideAtomRuntime
+    (if not, the atom uses Effect.runFork on the default runtime)
+
+POST
+  - return type depends on source kind (overload-based):
+    - plain value source: Ref<A> with .value === source immediately (NEVER undefined)
+    - Effect source: Ref<A | undefined> with .value === undefined initially, then === effect's success value after resolution
+    - Stream source: Ref<A | undefined> with .value === undefined initially, then === most recent emission
+
+INVARIANTS
+  - INV-1 (Fiber containment): the Fiber created for Effect or Stream sources is interrupted exactly once, on effectScope dispose
+  - INV-2 (Type fidelity): the returned Ref's value type is exactly A (or A | undefined for async sources). Never widened.
+  - INV-4 (Pending precedes resolved): for async sources that don't resolve synchronously, .value === undefined before first emission, then transitions atomically to the value
+  - INV-5 (Cleanup idempotence): if the effectScope is disposed twice, the second disposal is a silent no-op
+
+EFFECTS
+  - for plain value: NO fibers spawned, NO onScopeDispose registered
+  - for Effect: ONE fiber spawned via runFork (using injected runtime if provided, else default), ONE onScopeDispose registered
+  - for Stream: ONE fiber spawned that runs Stream.runForEach, ONE onScopeDispose registered
+  - mutates the returned Ref's .value asynchronously as the source produces values
+
+ERRORS
+  v0.1.0 surface (limited):
+    - typed Effect.fail values: NOT EXPOSED — the Ref remains undefined; users wanting error visibility use useAsyncAtom (slice 2)
+    - Effect.die / Cause.Die (defects): propagate as unhandled fiber failures; users see them in Effect's default logger
+    - Stream errors: same as Effect (not exposed via this composable)
+
+  Slice 2 will add useAsyncAtom which exposes typed errors via { data, error, pending } refs
+
+OBSERVABILITY (atom.<event> conceptual events — not literally emitted)
+  - atom.created(source) fires at composable invocation
+  - atom.resolved(value) fires per Stream emission OR once per Effect resolution
+  - atom.failed(cause) fires on Effect.fail / Stream error (NOT exposed in v0.1.0 surface)
+  - atom.disposed fires on effectScope dispose
+
+EXAMPLES
+  # plain value
+  const counter: Ref<number> = createAtom(0)
+
+  # Effect
+  const greeting: Ref<string | undefined> = createAtom(Effect.succeed("hello"))
+
+  # Effect with delay
+  const delayed: Ref<string | undefined> = createAtom(
+    Effect.succeed("delayed").pipe(Effect.delay("250 millis"))
+  )
+  # → starts undefined; after 250ms, becomes "delayed"
+
+  # Stream
+  const ticker: Ref<number | undefined> = createAtom(
+    Stream.tick("1 seconds").pipe(Stream.scan(0, (n) => n + 1))
+  )
+  # → starts undefined; after 1s becomes 1, after 2s becomes 2, etc.
+
+NON-GOALS
+  - this composable does NOT support manual triggering / refetching (use Pinia Colada + pinia-colada-effect for that)
+  - this composable does NOT cache across instances (each call creates a fresh atom)
+  - this composable does NOT support transactional updates (out of scope; see future STM exploration)
+
+KNOWN LIMITATIONS (v0.1.0, see LESSONS.md 2026-04-30)
+  - Effects with requirements R != never are not first-class — users must cast at the boundary, OR the Effect must be erased to R = never via Effect.provide before being passed in
+  - Slice 2 will extend overloads to preserve R via an explicit runtime parameter

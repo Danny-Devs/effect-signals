@@ -1,5 +1,5 @@
 import { mount } from "@vue/test-utils"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Stream } from "effect"
 import { describe, expect, it } from "vitest"
 import { defineComponent, h, nextTick } from "vue"
 import { createAtom, injectAtomRuntime, provideAtomRuntime } from "../src/index.js"
@@ -41,6 +41,31 @@ describe("createAtom", () => {
     expect(wrapper.find(".result").text()).toBe("pending")
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(wrapper.find(".result").text()).toBe("delayed")
+  })
+
+  it("subscribes to a Stream and updates the ref on each emission", async () => {
+    const Comp = defineComponent({
+      setup() {
+        const ticker = createAtom(Stream.fromIterable([1, 2, 3]))
+        return () => h("div", { class: "result" }, ticker.value === undefined ? "pending" : String(ticker.value))
+      },
+    })
+    const wrapper = mount(Comp)
+    expect(wrapper.find(".result").text()).toBe("pending")
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(wrapper.find(".result").text()).toBe("3")
+  })
+
+  it("plain non-Effect non-Stream objects pass through as values", () => {
+    const obj = { foo: "bar" }
+    const Comp = defineComponent({
+      setup() {
+        const wrapped = createAtom(obj)
+        return () => h("div", { class: "result" }, wrapped.value.foo)
+      },
+    })
+    const wrapper = mount(Comp)
+    expect(wrapper.find(".result").text()).toBe("bar")
   })
 })
 

@@ -1,0 +1,99 @@
+composable provideAtomRuntime<R>(layer: Layer.Layer<R, never, never>): ManagedRuntime.ManagedRuntime<R, never>
+composable injectAtomRuntime<R>(): ManagedRuntime.ManagedRuntime<R, never> | undefined
+
+# Allium behavioral specification for the runtime/Layer DI bridge
+# package: @effect-vue/core
+# source: packages/core/src/runtime.ts
+# invariants: INV-3
+
+# ────────────────────────────────────────────────────────────
+# provideAtomRuntime
+# ────────────────────────────────────────────────────────────
+
+PRE (provideAtomRuntime)
+  - called within a Vue component setup()
+  - layer must be a fully-resolved Layer (no unsatisfied requirements — second type param `never`, third type param `never`)
+
+POST (provideAtomRuntime)
+  - returns the constructed ManagedRuntime<R, never>
+  - registers the runtime in Vue's provide/inject hierarchy under ATOM_RUNTIME_KEY
+  - descendant components calling injectAtomRuntime() see this runtime
+  - descendant atoms (createAtom from Effect/Stream) execute their fibers on this runtime
+
+INVARIANTS
+  - INV-3 (Layer monotonicity): a child component calling provideAtomRuntime with a different runtime extends Vue's provide chain — the child sees its own; ancestor injection sites still see theirs. Vue's standard shadowing semantics. We do not invent merge semantics.
+
+EFFECTS
+  - calls Vue's provide(ATOM_RUNTIME_KEY, runtime) — affects the descendant subtree
+  - the ManagedRuntime constructs the Layer's services lazily on first runFork
+  - the runtime's resources are NOT auto-disposed by Vue scope (this is a gap to consider in slice 2 — should provideAtomRuntime register an onScopeDispose to dispose the runtime?)
+
+ERRORS
+  - if Layer construction fails (e.g., a nested Layer requires services not satisfied): construction error surfaces on first runFork, not at provide time
+  - calling provideAtomRuntime outside a setup() context: Vue's provide() throws / warns; we propagate that error
+
+# ────────────────────────────────────────────────────────────
+# injectAtomRuntime
+# ────────────────────────────────────────────────────────────
+
+PRE (injectAtomRuntime)
+  - called within a Vue component setup() or any active inject context
+
+POST (injectAtomRuntime)
+  - returns the runtime provided by the nearest ancestor that called provideAtomRuntime
+  - returns undefined if no ancestor has provided a runtime (no warning — explicit fall-through)
+
+INVARIANTS
+  - matches Vue's standard inject() semantics
+  - returns undefined explicitly (we pass undefined as the default to inject(), suppressing Vue's "injection not found" warning)
+
+EFFECTS
+  - none beyond Vue's inject() call
+
+ERRORS
+  - none — undefined return is the sentinel for "no provider"
+
+# ────────────────────────────────────────────────────────────
+# Composition with createAtom
+# ────────────────────────────────────────────────────────────
+
+INTEGRATION CONTRACT
+  - createAtom internally calls injectAtomRuntime()
+  - if a runtime is found: createAtom uses runtime.runFork(...) for Effect/Stream sources
+  - if no runtime is found: createAtom uses Effect.runFork(...) — the default runtime
+  - this means createAtom works with or without a provided runtime — runtime injection is opt-in
+
+EXAMPLES
+  # Define a service via Effect Tag
+  class Greeter extends Context.Tag("app/Greeter")<
+    Greeter,
+    { hello: () => Effect.Effect<string> }
+  >() {}
+
+  const GreeterLive = Layer.succeed(Greeter, {
+    hello: () => Effect.succeed("hello from layer"),
+  })
+
+  # In a parent component
+  const Parent = defineComponent({
+    setup() {
+      provideAtomRuntime(GreeterLive)
+      return () => h(Child)
+    },
+  })
+
+  # In a descendant component
+  const Child = defineComponent({
+    setup() {
+      const greeting = createAtom(
+        Effect.flatMap(Greeter, g => g.hello())
+      )
+      return () => h("p", greeting.value ?? "loading...")
+    },
+  })
+
+NON-GOALS
+  - this does NOT replace Vue's provide/inject for general DI — only the runtime injection point is wrapped
+  - this does NOT auto-detect or auto-create runtimes; users must call provideAtomRuntime explicitly
+  - this does NOT merge multiple Layers across components (use Layer.merge() at provide time)
+  - SLICE 2 OPEN QUESTION: should provideAtomRuntime register an onScopeDispose to call runtime.dispose()? Currently NO. May change.
