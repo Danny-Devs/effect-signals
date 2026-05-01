@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
+    "@types/node": "^25.6.0",
     "@vitejs/plugin-vue": "catalog:",
     "@vue/test-utils": "catalog:",
     "@vue/tsconfig": "catalog:",
