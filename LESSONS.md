@@ -174,3 +174,22 @@ This is the same epistemics as `feedback_paranoid_verification` ("agent FIXED �
 **For future agents:** the per-composable self-review and the end-of-slice review are NOT the same exercise. Per-composable review checks "does this thing work?" End-of-slice review checks "do these things work TOGETHER, are my verifications actually verifying, and did I make any decisions under pressure that need scrutiny?" Both are necessary; neither replaces the other. **Schedule both into every slice's done-criteria.** The cost of end-of-slice review on slice 3: ~30 minutes (one cross-composable integration test file, one type-check assertion file with sabotage proof, one behavior-decision implementation + test). The value: 3 classes of bugs caught before they ossify across slice boundaries.
 
 ---
+
+## [2026-04-30] — Dogfooding catches contract violations invisible to internal verification
+
+**Mistake:** Slice 3 shipped `<AtomBoundary>` with the ADR-006 implementation: `defineComponent` in a `.ts` file with an export-cast `as unknown as new<A, E>() => { $props, $slots }`. End-of-slice review added a `.check.ts` file that verified the cast preserved generics through `h(AtomBoundary, ...)` render-function usage. Both layers of internal verification (runtime tests + type-level check) PASSED. Slice 4's first dogfood step (a real Vue SFC consuming AtomBoundary in a `<template>`) immediately exposed an INV-2 violation: the cast doesn't propagate generics through Vue's SFC template type-checking — the most common usage pattern. The slot scope was silently `unknown`. Fix required rewriting the implementation as a `.vue` SFC + adding a Vue SFC compiler to the build pipeline + writing ADR-007 to supersede ADR-006.
+
+**Why it happened:** I tested the THREE template-checking paths separately:
+- `h(AtomBoundary, ...)` render functions → typechecked via h()'s explicit slot args ✅ (.check.ts validated)
+- `template:` strings inside `defineComponent` → NOT typechecked at all (Vue's runtime template compiler bypasses TS) ❌
+- `.vue` SFC templates → typechecked by vue-tsc's SFC compiler ❌ (only path that exercises SFC type machinery)
+
+My runtime tests used `template:` strings, which silently accepted any slot scope (path 2). My .check.ts used `h()` (path 1, which DID work). I never tested path 3 — the most common usage pattern — until dogfooding. **No amount of internal test discipline could have caught this; only consuming the API the way users will consume it could.**
+
+**Fix:** Per ADR-007, AtomBoundary now ships as a `.vue` SFC using `<script setup lang="ts" generic="A, E">` + `defineSlots<{...}>()`. Verified end-to-end with sabotage in the example: replacing `data.items.join(", ")` with `data.nonExistentField` fails vue-tsc with the precise type error. Slot scope generics are genuinely typed end-to-end through SFC build → published types → consumer's vue-tsc.
+
+**For future agents:** **internal verification asymptotes; dogfooding is unbounded.** No matter how many test layers you add (per-composable self-review, end-of-slice integration tests, `.check.ts` type-level assertions, sabotage verification), you can only verify what you THOUGHT to test. Dogfooding — consuming your own API the way users will — exercises the paths you didn't think of. The corollary: **build the example app DURING the slice that introduces a public API**, not after the slice ships. Slice 3 should have included a tiny `<AtomBoundary>` consumer in `examples/basic` as part of the slice's done-criteria, not deferred to slice 4. Catching this in slice 4 cost a major architectural refactor that touched build pipeline, test config, ADR layer, and architecture doc. Catching it during slice 3 would have been a smaller scope change, before the API surface ossified.
+
+**S3 methodology revision:** Add to slice done-criteria: "Every public API added in this slice has at least one consumer in `examples/basic` AND that consumer's typecheck + build passes." This forces dogfooding into the slice itself. Without it, the verification gap (test the way you author vs use the way users use) widens silently.
+
+---

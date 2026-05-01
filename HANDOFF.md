@@ -2,16 +2,16 @@
 
 > **Regeneratable, mutable, present-tense.** Updated (overwritten) at session end. A fresh AI agent or future-Danny reads this AND follows the canonical reading order in [`AGENTS.md` §Reading Order](./AGENTS.md). **This file does not duplicate that list** — single source of truth.
 >
-> **Last updated:** 2026-04-30 (end of session ~22:25)
-> **Last updater:** Claude Opus 4.7 (1M context) — same instance that received slice-2 baton; this session shipped familyAtom + AtomBoundary + useMatch (all three of slice 3's reactivity composables) plus ADR-006 plus 9 LESSONS entries plus this archive
-> **Latest milestone archive:** [`handoffs/2026-04-30-slice-3-complete.md`](./handoffs/2026-04-30-slice-3-complete.md) — captures end-of-slice-3 state with full methodology validation
+> **Last updated:** 2026-04-30 (end of session ~22:50)
+> **Last updater:** Claude Opus 4.7 (1M context) — same instance that took slice 3 to completion; this session began slice 4 and immediately hit a major architectural refactor (AtomBoundary `.ts` → `.vue` SFC) when dogfooding exposed an INV-2 violation
+> **Latest milestone archive:** [`handoffs/2026-04-30-slice-3-complete.md`](./handoffs/2026-04-30-slice-3-complete.md) — captures end-of-slice-3 state. The AtomBoundary refactor in slice 4 supersedes parts of slice 3's implementation; archive remains accurate as historical record.
 
 ---
 
 ## STEP 0 — Verify this handoff is current (run BEFORE trusting anything below)
 
 ```bash
-git log --oneline -1   # expect: b9cbdcd (or descendant) — see "Current commit" below
+git log --oneline -1   # expect: 0956ab1 (or descendant)
 git status --short      # expect: empty (no working-tree changes)
 ```
 
@@ -19,121 +19,120 @@ If `git log --oneline -1` does NOT match the SHA below, **assume this handoff is
 
 ---
 
-## How handoffs are versioned
-
-- `HANDOFF.md` (this file) is **always the current cursor**, regenerated each session.
-- `handoffs/` is the **curated archive** — milestone handoffs only.
-- **Archive when:** end of a slice/milestone, end of a week, before a major architectural pivot, when a blocker is discovered, when the session produced novel insight worth re-reading later.
-
----
-
 ## Current commit on `main`
 
-`b9cbdcd` (or descendant) — *test(s3): self-review of useMatch — add closure-tracking test, encode minimal-primitives lesson*
+`0956ab1` (or descendant) — *refactor: AtomBoundary ships as .vue SFC + ADR-007 supersedes ADR-006*
 
-To re-derive: `git log --oneline -15`
-
-This session shipped 11 commits across slice 3. See `handoffs/2026-04-30-slice-3-complete.md` for the milestone summary.
+To re-derive: `git log --oneline -10`
 
 ## Slice status
 
 - **Slice 1 (atoms + runtime):** ✅ SHIPPED
 - **Slice 2 (async ergonomics + R-preservation):** ✅ SHIPPED
-- **Slice 3 (families + boundaries + matching):** ✅ ESSENTIALLY DONE
-  - ✅ `familyAtom` SHIPPED — 6 tests, parent scope captured at family-creation time, R resolved once
-  - ✅ `<AtomBoundary>` SHIPPED — 6 tests, defineComponent + setup-returned render fn, ZERO h() calls (ADR-006 clarifies INV-9)
-  - ✅ `useMatch` SHIPPED — 6 tests, one-line `computed(() => matcher(source.value))`, type-flexible matcher signature
-  - 📋 DevTools breadcrumb hooks — DEFERRED to slice 4 / Phase 3 (interface design coupled to actual panel)
-  - 📋 Effect-aware `deriveAtom` — DEFERRED indefinitely (no demand)
-- **Slice 4 (examples + docs + publish):** 📋 NEXT — different cadence (examples, docs polish, npm publish)
+- **Slice 3 (families + boundaries + matching):** ✅ SHIPPED + REFACTORED in slice 4 (AtomBoundary → SFC)
+- **Slice 4 (examples + docs + publish):** 🚧 IN PROGRESS
+  - ✅ `examples/basic` — Vue 3 + Vite app demonstrating ALL 6 composables. SHIPPED in this session.
+  - ✅ AtomBoundary refactored to `.vue` SFC (ADR-007 supersedes ADR-006). SHIPPED.
+  - ⏳ README.md polish — NOT STARTED
+  - ⏳ `packages/effect-vue/` meta-package re-exporting `@effect-vue/core` — NOT STARTED
+  - ⏳ `examples/nuxt-ssr` — NOT STARTED (likely surfaces SSR/hydration bugs)
+  - 📋 npm publish dry-run — NOT STARTED (verify INV-10 — no bundled effect/vue)
+  - 📋 npm publish — NOT STARTED, **HUMAN-GATED** (Danny must approve)
 
 ## Live metrics (verify — do not trust this snapshot blindly)
 
 ```bash
-pnpm test         # expect: 28/28 passing (atom: 6, useAsyncAtom: 4, familyAtom: 6, AtomBoundary: 6, useMatch: 6)
-pnpm typecheck    # expect: clean
+pnpm test         # expect: 34/34 passing across 6 test files
+pnpm typecheck    # expect: clean (BOTH src and test configs)
 pnpm lint         # expect: clean
-pnpm --filter '@effect-vue/core' build  # expect: ~4.15 kB / gzip ~1.09 kB
+pnpm --filter '@effect-vue/core' build  # expect: 4.61 kB / gzip 1.26 kB
+
+# Example dogfooding (NEW — slice 4 done-criteria)
+cd examples/basic && pnpm exec vue-tsc --noEmit && pnpm build  # expect: clean + 246 kB / 83 kB gzip
 ```
 
-## Next concrete action: Begin Slice 4 (examples + publish prep)
+## What changed in slice 4 so far (high-level)
 
-**Slice 4 is qualitatively different from slices 1-3.** Slices 1-3 shipped reactivity composables — code with constitutional invariants and self-review discipline. Slice 4 ships USER-FACING ARTIFACTS — examples, README, npm publish. Different mental model: less "is this constitutionally sound?" and more "is this clear and discoverable for a new user?"
+The original slice 4 plan was "examples + docs + publish prep — a different cadence from slice 3." The first dogfood step (writing the `examples/basic/src/App.vue` to consume all 6 composables) immediately exposed a contract violation in slice 3's AtomBoundary: the export-cast pattern preserved generics through render-function usage but FAILED in SFC templates. Templates are Vue's primary usage pattern, so this was an INV-2 violation in the most common case.
 
-### Slice 4 work breakdown (in suggested order)
+The fix required a major architectural refactor:
+- AtomBoundary.ts → AtomBoundary.vue with `<script setup lang="ts" generic="A, E">`
+- tsdown gains `@vitejs/plugin-vue`; vue-tsc runs separately for type emission (TypeScript itself cannot read .vue files)
+- vitest config gains `@vitejs/plugin-vue`
+- Workspace devDeps gain `@vitejs/plugin-vue`, `vue`, `effect` at root level
+- ADR-007 supersedes ADR-006; INV-9 + ARCHITECTURE.md updated; AtomBoundary spec source pointer updated
+- Verified end-to-end via sabotage: example's `data.items.join(", ")` → `data.nonExistentField.toUpperCase()` fails vue-tsc with the precise type error. Slot scope generics are genuinely typed through SFC build → published types → consumer's vue-tsc.
 
-1. **`examples/basic`** — single Vue 3 + Vite app demonstrating all 6 public composables. One file per composable, plus a combined demo that wires them together (e.g., `userFamily(id)` → `useAsyncAtom`-shape → `<AtomBoundary>` for rendering, `useMatch` for state-derived display strings). This BOTH dogfoods the API (catches DX bugs) AND becomes the first thing users see in the README.
-2. **`README.md` polish** — install snippet, 30-second tour, link to examples, link to ARCHITECTURE.md for advanced. Don't try to teach Effect-TS (per NON-GOALS line 19); link to effect.website.
-3. **`packages/effect-vue/`** meta-package — re-exports `@effect-vue/core`. The bare `effect-vue` npm name is verified available (per ROADMAP slice 4). Lets users `pnpm add effect-vue` for the simplest install.
-4. **`examples/nuxt-ssr`** — Nuxt SSR example showing Layer-DI on server. Validates that the existing composables work in SSR context (likely will surface a real bug — useAsyncAtom + SSR has hydration concerns).
-5. **npm publish dry-run** — `pnpm pack` + verify the tarball satisfies INV-10 (no bundled effect/vue, peer-deps only). Audit the d.ts files for type leakage.
-6. **npm publish** — `effect-vue` AND `@effect-vue/core` in lockstep. **HUMAN-GATED** — Danny must confirm before publish.
+This refactor is **the right architecture from the ground up**. Per Danny's `feedback_build_best_then_deploy`: AI-speed implementation lets us fix the foundation now while there are zero external users — better than retrofitting later when consumers have built around the limitation.
 
-### First keystrokes for whoever picks up
+## Next concrete action
 
-1. Read `ROADMAP.md` Slice 4 section (already accurate)
-2. Read `examples/basic/README.md` if it exists (probably doesn't — create from scratch)
-3. Scaffold `examples/basic/` as a Vite + Vue 3 + TypeScript app that imports `@effect-vue/core` from the workspace
-4. Write the first composable demo (probably `createAtom` since it's the foundation)
-5. Iterate through the other 5 composables
-6. Use the demo to discover DX issues — every time you reach for something that doesn't exist or is awkward, FILE IT in LESSONS.md or as a new spec for slice 5+
+**README.md polish** is the smallest remaining slice 4 unit. The current README likely doesn't reflect the 6-composable surface or point to the example. Suggested order:
 
-## Open questions for Slice 4
+1. Read current `README.md`
+2. Update with: install snippet (`pnpm add effect-vue`), 30-second tour (one snippet per composable), link to `examples/basic`, link to `ARCHITECTURE.md` for advanced
+3. Keep terse — per `feedback_no_ai_slop_in_prs`, no verbose narrative or magic-feature-listing
+4. Per NON-GOALS line 19, do NOT teach Effect-TS; link to effect.website
+5. Verify renders correctly on GitHub by previewing the markdown
 
-> **Should be addressed during slice 4, not before.**
+Then in order:
+6. `packages/effect-vue/` meta-package (re-exports `@effect-vue/core`; claims the bare `effect-vue` npm name verified available per ROADMAP)
+7. `examples/nuxt-ssr` (likely surfaces real SSR bugs — useAsyncAtom + SSR has hydration concerns; this dogfooding step is as important as `examples/basic` was)
+8. `pnpm pack` dry-run — verify INV-10 (no bundled effect/vue in tarball, peer-deps only)
+9. **STOP AND ASK DANNY before npm publish.** Publishing is HUMAN-GATED.
 
-1. **`[BLOCKING SLICE 4 PUBLISH]` Should `effect-vue` (the meta-package) version-track `@effect-vue/core` 1:1, or have its own version?** Recommend 1:1 — simpler for users, no confusion about "which version of core does effect-vue 0.5 use?" Validate with the pnpm catalog config (already used for shared dep versions).
-2. **`[SCOPE]` Does the basic example demonstrate Layer DI?** Probably yes — provideAtomRuntime is one of the three "bridges" (per GLOSSARY) and showing it cements the mental model for new users.
-3. **`[SCOPE]` Does the basic example use a real backend (e.g., httpbin.org) or mock everything in-process?** Recommend in-process — keeps the example self-contained and avoids network flakiness in the demo.
-4. **`[POST-PUBLISH]` Open Vue Discord post / blog / YouTube video** — Phase 5 work per ROADMAP. Don't conflate with Slice 4. Ship 0.1.0 first, market it after.
+## NEW S3 methodology revision (added this session, propagate to other Swee projects)
 
-## Cross-cutting open questions (still alive after Slice 3)
+**Slice done-criteria now includes a dogfooding requirement.** Per LESSONS.md "Dogfooding catches contract violations invisible to internal verification" — every slice that introduces a public API must include at least one consumer of that API in `examples/basic` AND that consumer's typecheck + build must pass. Without this, the verification gap (test the way you author vs use the way users use) widens silently. Slice 3 should have caught the AtomBoundary INV-2 violation by including an SFC consumer in the slice; deferring to slice 4 cost a major refactor.
+
+This is a cross-project lesson worth propagating to S3 methodology memory (`project_swee_spec_stack.md`).
+
+## Open questions for the rest of slice 4
+
+> Address each as it comes up; not blocking for the README step.
+
+1. **`[BLOCKING META-PACKAGE]` Should the bare `effect-vue` package version-track `@effect-vue/core` 1:1?** Recommend yes — simpler for users, no confusion about "which version of core does effect-vue 0.5 use?"
+2. **`[BLOCKING SSR EXAMPLE]` Does `useAsyncAtom` work in SSR context?** Likely needs hydration-mismatch handling: server renders with pending=true, client hydrates with possibly-resolved state. Could surface a real bug warranting v0.2 attention.
+3. **`[BEFORE PUBLISH]` Should `dist/AtomBoundary.vue.d.ts.map` ship in the published tarball?** Currently `files: ["README.md", "dist", "src"]` includes everything in dist. Source maps add bytes but help debugging. Convention-following — most libraries ship them.
+4. **`[BEFORE PUBLISH]` Should we generate a single bundled `index.d.ts` rather than per-file?** Currently per-file (vue-tsc emits one .d.ts per source file). Bundled would be slightly nicer DX but requires api-extractor or similar. Defer unless a real consumer complains.
+
+## Cross-cutting open questions (still alive)
 
 1. **`[NOT BLOCKING]` `provideAtomRuntime` auto-dispose** — verified during familyAtom self-review that runtime resource lifetime is orthogonal to composable correctness. Resolve when long-running SPAs surface the cost.
-2. **`[DEFER, v0.2 surgery]` `useAsyncAtom` discriminated-union state shape** — would resolve sentinel-undefined collision (see LESSONS.md). The AtomBoundary regression test pins current behavior; when this lands, the test MUST flip and AtomBoundary MUST be updated in the same release.
-3. **`[NOT BLOCKING, future tightening]` ESLint rule for INV-9 import allowlist** — currently doc-only. ~30 LOC custom rule would close the loop.
+2. **`[DEFER, v0.2 surgery]` `useAsyncAtom` discriminated-union state shape** — would resolve the sentinel-undefined collision documented in LESSONS.md. The AtomBoundary regression test pins current behavior; when this lands, the test MUST flip and AtomBoundary MUST be updated in the same release.
+3. **`[NOT BLOCKING, future tightening]` ESLint rule for INV-9 import allowlist** — currently doc-only.
 
 ## Linear references
 
-- **DAN-421** (Urgent) — `effect-vue` v0.1.0 program-level tracking. **UPDATE LINEAR**: slice 3 complete, slice 4 starting.
+- **DAN-421** (Urgent) — `effect-vue` v0.1.0 program-level tracking. Slice 4 in progress.
 - **DAN-422** (High) — dapp-kit-vue POC, dogfoods effect-vue. Begins after `effect-vue` ships.
 - **DAN-423** (High) — Pinia Colada three-package split. Independent track.
 
 ## Bundle / quality budgets remaining (per INV-11, INV-13)
 
-- Core bundle: **1.09 KB gzip currently**. Ceiling 5 KB. **~3.91 KB headroom.** Slice 4 should not add to core bundle (no new composables planned).
-- TypeScript strictness: `strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes`. NEVER relax (INV-13).
-
-## Strategic context
-
-> Permanently filed in [`ROADMAP.md` §Strategic Context](./ROADMAP.md). HANDOFF retains a pointer; the substance lives in the durable doc.
-
-**Slice 3 methodology validation worth filing in S3 memory:** the spec-first + self-review-after-each-composable discipline shipped 2 real bug fixes (familyAtom cleanup test, AtomBoundary sentinel-undefined limitation). Total cost: ~10-15% of impl time. Total value: catching constitutional violations before they ossify. The 9 LESSONS.md entries written across this session encode the failure modes for future agents AND future Danny instances. **The 11-layer S3 stack is functioning as designed in production.**
-
-The "minimal primitives produce zero-bug surface" lesson (LESSONS.md final entry) is potentially the most important takeaway. familyAtom (~50 LOC, complex state) → bugs caught. AtomBoundary (~40 LOC, novel pattern) → bugs caught. useMatch (~5 LOC, minimal) → no bugs caught. Argues against bundling concerns into ergonomic mega-composables. Future Swee projects should adopt the principle.
+- Core bundle: **1.26 KB gzip currently**. Ceiling 5 KB. **~3.74 KB headroom.**
+- TypeScript strictness: NEVER relax (INV-13).
 
 ## Things the next agent should NOT do
 
 - Do not skip the pre-commit hook (`--no-verify` is forbidden per AGENTS.md).
-- Do not write code before writing the corresponding `.allium` spec (INV-6) — applies to ANY new public composable, including ones added in slice 4.
+- Do not write code before writing the corresponding `.allium` spec (INV-6).
 - Do not cast at the boundary to silence the type system (LESSONS.md 2026-04-30 — the R-tracking lesson exists for a reason).
-- Do not import VDOM constructors (`h`, `createVNode`, etc.) into core (INV-9 + ADR-006). `defineComponent` IS permitted.
-- **Do not push `effect-vue` to npm without explicit Danny approval.** This is a HUMAN-GATED action per CLAUDE.md.
-- **Do not publish to GitHub remote without explicit Danny approval.** The repo is local-only until Danny says otherwise.
+- Do not import VDOM constructors (`h`, `createVNode`, etc.) into core (INV-9 + ADR-006/ADR-007). `defineComponent` IS permitted; `.vue` SFC `<template>` blocks are the legitimate VNode-producing surface.
+- **Do not push to GitHub remote without explicit Danny approval.**
+- **Do not run `npm publish` without explicit Danny approval.** This is HUMAN-GATED per CLAUDE.md.
 - Do not commit without running `pnpm test && pnpm typecheck && pnpm lint && pnpm --filter '@effect-vue/core' build` and confirming all green.
 - Do not duplicate the AGENTS.md reading order anywhere else.
-- Do not skip the self-review pass after shipping ANY new composable in slice 4. Discipline pays compound interest.
-- Do not redesign useAsyncAtom's state shape without ALSO updating AtomBoundary in the same release — the regression test will fail and force the issue.
-- Do not write a test that only asserts "the API was called." Tests must observably falsify the invariant if the implementation breaks it.
-- Do not bundle multiple concerns into a single composable for ergonomics — minimal primitives that compose are a better design (see LESSONS.md "Minimal primitives produce zero-bug surface").
+- Do not redesign useAsyncAtom's state shape without ALSO updating AtomBoundary in the same release.
+- Do not bundle multiple concerns into a single composable for ergonomics — minimal primitives compose better.
+- Do not introduce a public API in any slice without ALSO adding a consumer in `examples/basic` and verifying its typecheck + build (NEW slice done-criteria from this session).
+- Do not assume internal tests prove user-facing contracts hold — dogfooding is the only path that exercises real user paths (LESSONS.md 2026-04-30 §"Dogfooding catches contract violations").
 
-## Where this session deliberately stopped
+## Where this session deliberately stopped (or will, after the next commit)
 
-This Claude Opus 4.7 instance shipped slice 3 in entirety (3 composables + 1 ADR + 9 LESSONS entries + milestone archive). Stopping point chosen because:
+This Claude Opus 4.7 instance shipped slice 4's first major piece (examples/basic + AtomBoundary refactor + ADR-007 + 1 LESSONS entry). Stopping point chosen because:
 
-- Slice 3's reactivity-composable phase is complete; remaining slice 3 work (DevTools breadcrumbs) is coupled to Phase 3 panel design and benefits from joint design later
-- Slice 4 is qualitatively different work (examples, docs, publish) — different mental model, benefits from a fresh session
-- Token budget remains comfortable (~150K used, ~850K headroom on the 1M context model) — could continue, but slice boundary is the natural rest point
-- The slice-3-complete archive (`handoffs/2026-04-30-slice-3-complete.md`) preserves the milestone permanently; future Danny + future agents can re-read it without re-deriving from git log
-
-**Session signal: the spec → tests → impl → 4-gate → docs → commit → self-review → fix → commit cadence is reproducible and bounded.** Each composable is a ~5-7 commit unit. Slice 3 closed in 11 commits across the 3 composables + meta-work (HANDOFF regen × 2, slice-complete archive, ADR-006). Slice 4's cadence will look different (more examples, less spec).
+- The architectural refactor was substantial and warrants Danny's review before continuing
+- README polish is a clean unit of work that benefits from a fresh design pass (the README is the first thing users see; it deserves more deliberation than a tail-end "and one more thing" effort)
+- Token budget remains comfortable, but the slice 4 work pattern (each step is dogfooding-driven) suggests stopping at natural surfaces rather than plowing through
+- Per the new dogfooding done-criteria, each remaining slice 4 unit (meta-package, nuxt-ssr) is going to surface real bugs the same way examples/basic did. Better to handle each in its own focused session.
