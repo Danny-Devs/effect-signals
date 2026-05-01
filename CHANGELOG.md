@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 3 continues: AtomBoundary shipped + INV-9 clarified via ADR-006
+
+### [feat] @effect-vue/core — `<AtomBoundary>` async-state slot dispatcher
+
+- `AtomBoundary` is a defineComponent over `AsyncAtomState<A, E>` that dispatches one of three slots based on the state: `pending` (no scope), `error` (scope: `{ error: E }`), `default` (scope: `{ data: A }`). The slot scopes carry narrowed types — `data: A` (not `A | undefined`), `error: E` (not `E | undefined`) — preserving INV-2 type fidelity at the rendering boundary.
+- Implementation: defineComponent + setup-returned render function that invokes user slots directly via `slots.pending?.()` etc. ZERO `h()` / `createVNode` calls — Vapor-forward by construction. The component itself constructs no VNodes; all VNode/Vapor-block creation happens upstream in user slot templates.
+- Generic-typed via the export-cast pattern (Vue 3 + plain `.ts` doesn't natively support generic components — the `.vue` SFC `<script setup generic>` syntax is the alternative; we use the cast to avoid adding rolldown-plugin-vue to the build).
+- 5 vitest cases (21 total): pending slot, default slot with typed data, error slot with typed error, empty render when no matching slot, reactive transition pending → resolved with no remount.
+- Bundle: 4.01 kB / gzip 1.05 kB (was 0.86 kB → +0.19 kB; under INV-11's 0.5 kB per-composable budget).
+
+### [docs] ADR-006 — `defineComponent` permitted, VDOM constructors forbidden
+
+- Original INV-9 wording forbade `defineComponent` in non-test code. On inspection: `defineComponent` is a runtime no-op type helper (returns its arg unchanged); the actual VDOM weight comes from `h` / `createVNode` / `createElementVNode`. The original wording conflated a TS helper with VDOM constructors.
+- ADR-006 splits the rule. INV-9 now has an explicit allowlist (defineComponent, defineProps, defineEmits, defineSlots, plus reactivity/scope/DI) and an explicit denylist (h, createVNode, createElementVNode, createBlock, createElementBlock, Fragment, Text, Comment).
+- Tests retain a carve-out for `h` (component-mounting test utilities).
+- ESLint enforcement is still doc-only (TODO); manual code review enforces until then.
+
+### [docs] ARCHITECTURE.md — Boundaries context added
+
+- New bounded context #6 (Boundaries) split out from Async ergonomics. Useful because useAsyncAtom can be consumed by template-only patterns without dragging AtomBoundary into the bundle, and AtomBoundary can be replaced by a different rendering policy without changing useAsyncAtom.
+
+### [chore] slice 3 progress
+
+Remaining slice 3 work: Pattern Matching primitive (`useMatch`), DevTools breadcrumb hooks. Tracked in ROADMAP.md.
+
 ## [2026-04-30] — slice 3 begins: familyAtom shipped
 
 ### [feat] @effect-vue/core — `familyAtom` parametric atom factory

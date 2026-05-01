@@ -61,9 +61,15 @@
 **Witness:** CI step in `.github/workflows/ci.yml` — run `pnpm --filter @effect-vue/core build`, measure gzipped size, fail if >5KB.
 
 ### INV-9: No VDOM-specific imports
-**Rule:** `@effect-vue/core` never imports `h`, `defineComponent` (in non-test code), or any VDOM-specific function. Vapor-forward by construction.
+**Rule:** `@effect-vue/core/src` never imports VDOM constructors. Vapor-forward by construction. Clarified by [ADR-006](docs/adr/0006-defineComponent-permitted-vdom-helpers-forbidden.md) (2026-04-30).
 
-**Witness:** ESLint rule (custom or via `import/no-restricted-imports`).
+**Forbidden in `src/` (VDOM constructors):** `h`, `createVNode`, `createElementVNode`, `createBlock`, `createElementBlock`, `Fragment`, `Text`, `Comment`, and any other Vue export from the `@vue/runtime-core` VDOM construction surface. These produce VNode objects and are NOT preserved by Vapor compilation.
+
+**Permitted in `src/` (runtime no-op helpers + reactivity/scope/DI):** `defineComponent`, `defineProps`, `defineEmits`, `defineSlots`, `getCurrentInstance`, `getCurrentScope`, `effectScope`, `onScopeDispose`, `provide`, `inject`, `ref`, `computed`, `watch`, `watchEffect`, plus type-only Vue exports. These are either runtime no-ops (return arg unchanged) or part of Vue's reactivity/scope/DI system that survives Vapor.
+
+**Test code (`test/`) carve-out:** `h` and other VDOM constructors are permitted in test files for component-mounting test utilities. Tests do not ship to consumers.
+
+**Witness:** ESLint rule (custom or via `import/no-restricted-imports`) enforcing the allowlist split. **Currently doc-only** — machine enforcement is a TODO. Until then, manual code review during PR enforces the rule.
 
 ### INV-10: Effect/Vue peer-dep only (in published artifact)
 **Rule:** The published `@effect-vue/core` tarball MUST NOT bundle `effect` or `vue`. They are declared as `peerDependencies` and consumers provide them.

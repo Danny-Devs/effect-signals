@@ -1,0 +1,131 @@
+component AtomBoundary<A, E>
+
+# Props
+prop state: AsyncAtomState<A, E>  # required — the { data, error, pending } triple from useAsyncAtom
+
+# Slots
+slot pending(): VNode  # rendered when state.pending.value === true
+slot error(scope: { error: E }): VNode  # rendered when state.error.value !== undefined
+slot default(scope: { data: A }): VNode  # rendered when state.data.value !== undefined AND not pending AND not errored
+
+# Allium behavioral specification for the AtomBoundary component
+# package: @effect-vue/core
+# source: packages/core/src/AtomBoundary.ts
+# invariants: INV-2 (type fidelity), INV-9 (no VDOM imports — see ADR-006)
+# non-goal: NOT a Suspense replacement (per NON-GOALS.md)
+
+# ────────────────────────────────────────────────────────────
+# Mental model
+# ────────────────────────────────────────────────────────────
+#
+# AtomBoundary is the smallest possible companion to useAsyncAtom: a thin
+# error/loading wrapper that picks one of three slots based on the
+# AsyncAtomState triple. Users could write the v-if/v-else-if/v-else by hand
+# in 3 lines of template. AtomBoundary makes the pattern *visible* (consistent
+# semantic name across a codebase) and *typed* (slot scopes carry the narrowed
+# data/error types from useAsyncAtom's generics).
+#
+# It does NOT introduce a parallel boundary system (that's Suspense's job).
+# It does NOT auto-detect arbitrary state shapes via duck typing — it requires
+# the AsyncAtomState type from useAsyncAtom for type fidelity.
+
+PRE
+  - state prop must be the return value of useAsyncAtom (or a hand-constructed
+    object matching AsyncAtomState<A, E> exactly: three Refs named data, error, pending)
+  - exists in a Vue component tree (component must be rendered through the standard
+    Vue render path)
+
+POST
+  - renders exactly ONE of three slots per render based on state values:
+    1. if state.pending.value === true → renders the `pending` slot (no slot scope)
+    2. else if state.error.value !== undefined → renders the `error` slot with scope { error }
+    3. else if state.data.value !== undefined → renders the `default` slot with scope { data }
+    4. else → renders nothing (returns null) — this case occurs only in the brief gap
+       between mount and first emission for the pending slot's absence; expected to be
+       imperceptible in practice but documented for completeness
+
+  - the rendered slot is reactive: as state.pending / state.error / state.data change,
+    the appropriate slot is re-rendered
+
+INVARIANTS
+  - INV-2 (Type fidelity): the `default` slot's scope.data is typed as A (NOT A | undefined),
+    and the `error` slot's scope.error is typed as E (NOT E | undefined). The component
+    narrows the optional-undefined types at the v-if guard, mirroring how Vue's template
+    compiler narrows v-if checks.
+  - INV-9 (No VDOM imports): the implementation MUST NOT import `h`, `createVNode`,
+    `createElementVNode`, or any other VDOM constructor. It MAY import `defineComponent`
+    (a runtime-noop type helper — see ADR-006). It MAY invoke slot functions directly
+    (`slots.default?.({ data })` returns whatever the user's slot template renders to).
+
+EFFECTS
+  - reads state.pending.value, state.error.value, state.data.value as reactive deps
+  - registers no fibers, no scope handlers — purely a reactive renderer
+  - bundle target: <0.4 kB gzip (per INV-11 per-feature budget)
+
+ERRORS
+  - if state prop is missing or not the expected shape: TS rejects at the call site;
+    runtime behavior undefined (we do NOT runtime-check the shape — INV-2 type fidelity
+    means we trust the type system at the boundary)
+  - if all three slots are absent AND state has resolved: renders nothing (no error)
+
+OBSERVABILITY (conceptual events — not literally emitted)
+  - boundary.rendered(slot: "pending" | "error" | "default" | "empty") on each render
+
+EXAMPLES
+
+  # Basic usage with useAsyncAtom
+  <script setup lang="ts">
+  import { Effect } from "effect"
+  import { useAsyncAtom, AtomBoundary } from "@effect-vue/core"
+
+  const greeting = useAsyncAtom(
+    Effect.succeed("hello").pipe(Effect.delay("250 millis"))
+  )
+  </script>
+
+  <template>
+    <AtomBoundary :state="greeting">
+      <template #pending>Loading…</template>
+      <template #error="{ error }">Failed: {{ error.message }}</template>
+      <template #default="{ data }">{{ data }}</template>
+    </AtomBoundary>
+  </template>
+
+  # With typed errors
+  type FetchError = { code: number; message: string }
+  const user = useAsyncAtom(
+    Effect.tryPromise({
+      try: () => fetch("/api/me").then(r => r.json() as Promise<User>),
+      catch: (e): FetchError => ({ code: 500, message: String(e) }),
+    })
+  )
+  # error slot scope is typed: { error: FetchError }
+  # default slot scope is typed: { data: User }
+
+  # Composing with familyAtom — wrap each member with its own boundary
+  const userFamily = familyAtom((id: string) =>
+    Effect.flatMap(UserService, s => s.fetchUser(id))
+  )
+  # Note: familyAtom returns Ref<A | undefined>, NOT AsyncAtomState. To use
+  # AtomBoundary with familyAtom, wrap the family member in useAsyncAtom-shape
+  # manually OR (slice 4) use the planned `useAsyncFamily` composable.
+
+NON-GOALS
+  - NOT a Suspense alternative (per NON-GOALS.md line 17). Suspense remains the
+    correct boundary for async component loading; AtomBoundary is for atom-state.
+  - NOT a generic state-shape adapter. Only AsyncAtomState<A, E> is supported.
+    Future composables that produce different state shapes (e.g., a tri-state
+    optimistic-update primitive) get their own boundary components.
+  - NOT auto-retry / refetch UI. Wrap with retry logic in the source Effect itself.
+  - NOT an error "catcher" — typed errors come through state.error. Defects
+    (Cause.Die / unhandled exceptions) are NOT surfaced (matches useAsyncAtom).
+  - NOT a polymorphic <slot v-bind="state"> that exposes the raw state. The slot
+    scopes are deliberately narrowed (data: A, not data: A | undefined).
+
+KNOWN LIMITATIONS
+  - Defects (Effect.die / unhandled exceptions) keep state.pending true forever
+    in useAsyncAtom v0.1.0. AtomBoundary will render the `pending` slot indefinitely
+    in that case. If/when useAsyncAtom adds a `defect` ref, AtomBoundary should add
+    a `defect` slot in the same release.
+  - The "all slots absent" edge case (state resolved, no `default` slot) renders nothing
+    silently. A future ESLint rule could warn at the call site if no `default` slot is provided.

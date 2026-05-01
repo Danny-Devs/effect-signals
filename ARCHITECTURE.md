@@ -6,7 +6,7 @@
 
 ## Bounded contexts (DDD)
 
-effect-vue decomposes into eight bounded contexts. Each owns a clear responsibility, has well-defined boundaries, and may evolve independently.
+effect-vue decomposes into nine bounded contexts. Each owns a clear responsibility, has well-defined boundaries, and may evolve independently.
 
 | # | Context | Owns | Concretely |
 |---|---|---|---|
@@ -15,9 +15,10 @@ effect-vue decomposes into eight bounded contexts. Each owns a clear responsibil
 | 3 | **Derivations** | Computed-style atom transformations | `deriveAtom` (slice 2) |
 | 4 | **Async ergonomics** | Pending/error/data triple for async sources | `useAsyncAtom` ✅ slice 2 LIVE |
 | 5 | **Families** | Parametric atom factories | `familyAtom` ✅ slice 3 LIVE |
-| 6 | **Pattern matching** | Exhaustive view-state matching (Effect.Match → templates) | (investigated in slice 2, may land slice 3+) |
-| 7 | **Messaging** | Cross-component pub/sub on Effect.Hub | (deferred — `@effect-vue/messaging` future) |
-| 8 | **Telemetry** | OpenTelemetry from browser | (deferred — `@effect-vue/telemetry` future) |
+| 6 | **Boundaries** | UI rendering of async-atom state via slot dispatch | `AtomBoundary` ✅ slice 3 LIVE |
+| 7 | **Pattern matching** | Exhaustive view-state matching (Effect.Match → templates) | `useMatch` (slice 3 remaining or 4) |
+| 8 | **Messaging** | Cross-component pub/sub on Effect.Hub | (deferred — `@effect-vue/messaging` future) |
+| 9 | **Telemetry** | OpenTelemetry from browser | (deferred — `@effect-vue/telemetry` future) |
 
 ## Three-layer effect recursion
 
@@ -90,6 +91,25 @@ Vue's `inject()` only works inside `setup()` or a functional component's render 
 ### Why parent scope is captured at family-creation time
 
 Each cached atom's fiber needs cleanup tied to the family's lifetime, NOT the call-site's lifetime. If `family(k)` were called from a transient child scope (e.g., inside a temporary `effectScope`), the atom's fiber would be interrupted prematurely while the family still expected it cached. Running member creation inside `parentScope.run(() => createMember(...))` ensures every member's `onScopeDispose` registers with the family's scope.
+
+## Boundaries — bounded context detail
+
+**STATUS:** LIVE (slice 3 second composable shipped)
+**FLOW:** state.pending/error/data reactive reads → setup-returned render fn → slot dispatch (one of `pending` / `error({error})` / `default({data})`) → user's slot template renders to VNode/Vapor block
+**SOURCE:** `packages/core/src/AtomBoundary.ts` — `AtomBoundary`
+**LAST VERIFIED:** 2026-04-30
+
+### Aggregate root: AtomBoundary
+
+A defineComponent-wrapped reactive renderer over `AsyncAtomState<A, E>`. Holds no state of its own; delegates rendering to one of three user-provided slots based on the state-reading branch chosen at render time. The setup function returns a closure-captured render function — all reactivity lives in Vue's reactive system, not in the component.
+
+### Why this is its own bounded context (not folded into Async ergonomics)
+
+`useAsyncAtom` (context 4) owns the *state shape* — the `{data, error, pending}` triple's semantics, atomicity (INV-4), and lifecycle. AtomBoundary owns the *rendering policy* — how to map state to UI. Splitting them means useAsyncAtom can be consumed by template-only patterns (raw `v-if/v-else-if/v-else`) without dragging AtomBoundary into the bundle, and AtomBoundary can be replaced by a different rendering policy (e.g., a future Suspense-integrated boundary) without changing useAsyncAtom.
+
+### Why defineComponent is permitted here despite INV-9
+
+INV-9 forbids VDOM constructors (`h`, `createVNode`, etc.) but permits `defineComponent` per ADR-006 (2026-04-30). `defineComponent` is a runtime no-op type helper that returns its argument unchanged — it drags zero VDOM weight. The AtomBoundary implementation invokes user slots directly (`slots.pending?.()`) and returns the slot's return value, NEVER constructing VNodes itself. Vapor compatibility is preserved because all VNode creation happens upstream (in user templates that get compiled to Vapor blocks).
 
 ## Runtime — bounded context detail
 
