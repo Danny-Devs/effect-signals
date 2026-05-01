@@ -2,8 +2,8 @@
 
 > **Regeneratable, mutable, present-tense.** Updated (overwritten) at session end. A fresh AI agent or future-Danny reads this AND follows the canonical reading order in [`AGENTS.md` §Reading Order](./AGENTS.md). **This file does not duplicate that list** — single source of truth.
 >
-> **Last updated:** 2026-05-01 (post-Tier-1-publish-readiness session)
-> **Last updater:** Claude Opus 4.7 (1M context). This session took slice 4 from ~50% to **publish-ready**: vue-tsc 2.x→3.x catalog bump (sabotage-verified through ADR-007's SFC slot machinery), INV-10 mechanical witness shipped (script + sabotage proof + prepublish wiring), fresh-install dogfood for both packages (caught one real surprise about `AsyncAtomState` shape), repo URL correction (`dannydevs` → `Danny-Devs`), `workspace:*` → `workspace:^` for caret semantics, CI workflow extended.
+> **Last updated:** 2026-05-01 (post-Tier-1, post-GitHub-remote, post-CI-green)
+> **Last updater:** Claude Opus 4.7 (1M context). This session took slice 4 from ~50% to **fully green on CI, awaiting only `npm publish`**: vue-tsc 2.x→3.x catalog bump (sabotage-verified through ADR-007's SFC slot machinery), INV-10 mechanical witness shipped (script + sabotage proof + prepublish wiring), fresh-install dogfood for both packages (caught one real surprise about `AsyncAtomState` shape), repo URL correction (`dannydevs` → `Danny-Devs`), `workspace:*` → `workspace:^` for caret semantics, CI workflow extended, GitHub remote created (`Danny-Devs/effect-vue`, public, with topics), TWO real CI-only failures caught and fixed (`@types/node` was hoisted not declared; build must precede typecheck), encoded as a new LESSONS.md entry.
 > **Latest milestone archive:** [`handoffs/2026-04-30-slice-3-complete.md`](./handoffs/2026-04-30-slice-3-complete.md). Note: AtomBoundary's slice-3 implementation strategy was superseded by ADR-007 in slice 4; the archive remains accurate as historical record.
 
 ---
@@ -21,11 +21,17 @@ If `git log --oneline -1` does NOT include the SHA below, **assume this handoff 
 
 ## Current commit on `main`
 
-The Tier-1 publish-readiness commit (or its descendant). Re-derive with `git log --oneline -20`. The session's commit message will be:
+`32bfe5e` (or descendant) — *fix(ci): build before typecheck*. The publish-readiness chain is:
 
-> *chore(s4): Tier-1 publish-readiness — vue-tsc 3.2 + INV-10 witness + fresh-install dogfood*
+```
+3182825 docs(s4): regenerate HANDOFF.md for night-end (slice 4 ~50%, Tier-1 publish-readiness next)
+15b47e7 chore(s4): Tier-1 publish-readiness — vue-tsc 3 + INV-10 witness + dogfood
+b055659 fix(ci): remove duplicate pnpm version pin
+dd9c78b fix(deps): add @types/node as explicit devDep
+32bfe5e fix(ci): build before typecheck
+```
 
-(Plus a follow-up commit setting up the GitHub remote and CI integration, if that step landed in the same session.)
+Re-derive with `git log --oneline -20`. CI is GREEN as of `32bfe5e`. GitHub remote: `https://github.com/Danny-Devs/effect-vue` (public).
 
 ## Slice status
 
@@ -44,7 +50,8 @@ The Tier-1 publish-readiness commit (or its descendant). Re-derive with `git log
   - ✅ Repo URL corrected (`dannydevs` → `Danny-Devs`)
   - ✅ Meta dep semantics: `workspace:^` (caret — patch updates flow automatically)
   - ✅ CI workflow extended with INV-10 step + examples/basic dogfood gate
-  - 📋 GitHub remote setup + initial push — IN PROGRESS / DEPENDS ON THIS SESSION'S NEXT STEP
+  - ✅ GitHub remote created — `Danny-Devs/effect-vue` (public), main pushed, topics set, description set, homepage set
+  - ✅ CI green on the publish-readiness chain (run `25206075937` → all 8 steps ✓ on commit `32bfe5e`)
   - 📋 npm publish — **HUMAN-GATED.** Stop. Danny approves.
   - 📋 `examples/nuxt-ssr` — DEFERRED to Phase 2 / Nuxt package (per Danny 2026-04-30; not blocking publish)
 
@@ -63,22 +70,9 @@ cd packages/effect-vue && pnpm dlx publint               # expect: All good!
 
 ## Next concrete action when this resumes
 
-The local repo is publish-ready. Two human-gated steps remain:
+Local repo + GitHub remote are publish-ready. CI is green. ONE human-gated step remains:
 
-### 1. GitHub remote (if not yet pushed)
-
-```bash
-gh repo create Danny-Devs/effect-vue \
-  --public \
-  --source=. \
-  --push \
-  --description "Vue 3 bindings for Effect-TS — atoms, runtime, async ergonomics, families, boundaries, pattern matching" \
-  --homepage "https://github.com/Danny-Devs/effect-vue"
-```
-
-After push, watch CI: `gh run watch` or check the Actions tab. CI must be green before any publish.
-
-### 2. npm publish — HUMAN-GATED, in this exact order
+### npm publish — HUMAN-GATED, in this exact order
 
 ```bash
 # Verify all gates one final time
@@ -105,10 +99,11 @@ node -e "import('effect-vue').then(m => console.log(Object.keys(m)))"
 
 **Do not run `pnpm publish` without Danny's explicit go-ahead.** This is the single hard gate left.
 
-### 3. Post-publish housekeeping
+### Post-publish housekeeping
 
-- Add `LESSONS.md` entry for the `AsyncAtomState`-shape surprise (dogfood found it; encoded as a positive lesson about consumer-shaped tests, even though it didn't break anything).
 - Tag the release: `git tag v0.1.0 && git push --tags` (only after both publishes succeed).
+- Update GitHub repo's "About" with the actual npm URLs once published.
+- Update `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4` to Node 24-compatible versions before June 2, 2026 (CI annotation; not blocking).
 - Phase 2 begins: `examples/nuxt-ssr` + `@effect-vue/nuxt` package.
 
 ## Cross-cutting open questions (still alive)
@@ -151,10 +146,12 @@ node -e "import('effect-vue').then(m => console.log(Object.keys(m)))"
 
 ## Session-end note (2026-05-01)
 
-Slice 4 is publish-ready. The Tier-1 work (vue-tsc bump, fresh-install dogfood, INV-10 mechanical witness) all landed cleanly in one session. Three findings worth filing:
+Slice 4 is publish-ready, **CI is green**, GitHub remote is live, and the only remaining gate is `npm publish` (human-gated). Five findings worth filing:
 
 1. **vue-tsc 2.x → 3.x was risk-free thanks to ADR-007's discipline.** AtomBoundary's `<script setup generic>` syntax is exactly what volar 2's rewrite was engineered to preserve. The sabotage assertion produced an identical error message under both vue-tsc versions. The lesson: aligning your authoring surface with the framework's blessed patterns is what makes ecosystem upgrades cheap.
-2. **Fresh-install dogfood caught a real consumer-shape surprise.** `AsyncAtomState<A, E>` is the `{ data, error, pending }` ref triple itself, not a wrapper. Internal tests passed because they only used `useAsyncAtom`'s return type indirectly via `ReturnType<typeof ...>`; the dogfood forced a direct construction and surfaced the actual shape. This is exactly the gap the dogfood done-criteria (LESSONS.md, slice 3) was added to catch — and it caught one on its first real use.
-3. **Pre-publish dogfood for the meta-package requires `pnpm.overrides`.** When `@effect-vue/core` isn't on npm yet, `pnpm add effect-vue.tgz` fails with 404 because the by-name dep can't resolve. `pnpm.overrides` redirects it to the local tarball. After publish this stops being relevant. Documented in CHANGELOG and HANDOFF for any future contributor who pre-publishes a co-dependent package.
+2. **Fresh-install dogfood caught a real consumer-shape surprise.** `AsyncAtomState<A, E>` is the `{ data, error, pending }` ref triple itself, not a wrapper. Internal tests passed because they only used `useAsyncAtom`'s return type indirectly via `ReturnType<typeof ...>`; the dogfood forced a direct construction and surfaced the actual shape.
+3. **Pre-publish dogfood for the meta-package requires `pnpm.overrides`.** When `@effect-vue/core` isn't on npm yet, `pnpm add effect-vue.tgz` fails with 404. `pnpm.overrides` redirects to the local tarball. After publish this stops being relevant.
+4. **CI caught two failures invisible to local internal verification.** All local gates were green (test, typecheck, lint, INV-10 witness, publint, two fresh-install dogfoods); CI failed twice — first on `@types/node` not being a declared dep (was hoisted from a transitive locally), then on `dist/` not existing on a clean checkout (typecheck ran before build). Both fixed; both encoded in LESSONS.md as the **clean-checkout dogfood requirement**: internal verification + tarball dogfood + clean CI run is the minimum bar.
+5. **`pnpm/action-setup@v4` rejects duplicate version specifications.** If `version:` is set in the workflow AND `packageManager:` is set in package.json, the action fails. Prefer the package.json source of truth and omit `version:` from the workflow.
 
 Single hard gate remaining: **`npm publish`.** Everything else is done.
