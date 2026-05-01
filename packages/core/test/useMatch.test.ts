@@ -102,6 +102,41 @@ describe("useMatch", () => {
     expect(wrapper.find(".result").text()).toBe("HELLO")
   })
 
+  it("tracks additional refs read inside the matcher closure (Vue computed dep tracking)", async () => {
+    // Documents the closure-tracking behavior from useMatch.allium KNOWN LIMITATIONS.
+    // If matcher closes over additional refs and reads their .value, those become deps too.
+    // Future agents refactoring useMatch must preserve this behavior — breaking it would
+    // silently change reactivity semantics for users who rely on multi-ref matchers.
+    let evaluations = 0
+    const Comp = defineComponent({
+      setup() {
+        const source = ref(10)
+        const multiplier = ref(2)
+        const result = useMatch(source, (n) => {
+          evaluations++
+          return n * multiplier.value // closes over multiplier
+        })
+        return { source, multiplier, result }
+      },
+      template: `<div class="result">{{ result }}</div>`,
+    })
+    const wrapper = mount(Comp)
+    expect(wrapper.find(".result").text()).toBe("20")
+    expect(evaluations).toBe(1)
+
+    // Change the source — re-eval expected
+    wrapper.vm.source = 5
+    await nextTick()
+    expect(wrapper.find(".result").text()).toBe("10")
+    expect(evaluations).toBe(2)
+
+    // Change ONLY the multiplier (which the matcher closes over) — re-eval expected too
+    wrapper.vm.multiplier = 4
+    await nextTick()
+    expect(wrapper.find(".result").text()).toBe("20")
+    expect(evaluations).toBe(3)
+  })
+
   it("propagates a synchronous throw from the matcher via Vue computed", () => {
     const Comp = defineComponent({
       setup() {

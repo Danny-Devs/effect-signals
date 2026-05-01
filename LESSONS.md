@@ -129,3 +129,18 @@ The original wording said #4 only covered case B (and even mis-described case B 
 **For future agents:** when writing POST conditions, **distinguish observable outputs by their cause, not just their value.** Two paths to the same return value that have different causes need separate clauses. Otherwise a future debugger reads the spec, sees "returns null," and can't tell which path they're hitting.
 
 ---
+
+## [2026-04-30] — Minimal primitives produce zero-bug surface; complex primitives produce hidden bugs
+
+**Observation (not a mistake — a positive lesson worth encoding):** Slice 3 shipped three composables: `familyAtom` (~50 LOC, complex stateful behavior), `AtomBoundary` (~40 LOC, novel slot-dispatch pattern with generic component cast), and `useMatch` (~5 LOC, one-line `computed(() => matcher(source.value))`). Self-review pass on each:
+- familyAtom: caught a false-confidence cleanup test (asserted no-throw, didn't prove interruption) — strengthened with `Effect.never` + `onInterrupt` counter
+- AtomBoundary: caught a sentinel-undefined collision (inherited from useAsyncAtom but invisible until rendering layer surfaced it) AND a muddled spec POST condition conflating two distinct null-return paths
+- useMatch: **caught nothing.** Implementation is too thin to harbor bugs. The only surface area is the type signature, which either composes correctly or fails compilation.
+
+**Why this matters:** It's tempting to bundle multiple concerns into a single composable for ergonomics ("AtomBoundary should also handle pattern-matching!"). The slice 3 evidence argues against this — every concern bundled into a primitive is bug surface area waiting to be discovered during self-review. A primitive that does ONE thing in 5 lines composes with everything; a primitive that does THREE things in 50 lines hides bugs in the interactions between concerns.
+
+**For future agents:** when designing a new composable, **prefer the smallest possible primitive that does ONE thing**, even if it feels trivial. The trivial primitive will compose with the others to express any complex behavior the user needs. The "ergonomic mega-composable" will ship with bugs you discover during self-review, OR worse, after release. PRINCIPLES.md #5 (bundle size is moat) and #2 (atoms are refs first, effects second) are downstream of this principle. The slice 3 self-review evidence quantifies the cost: complex primitives → real bugs caught; minimal primitives → zero bugs found.
+
+Tradeoff to acknowledge: minimal primitives require users to compose them, which has its own learning curve. Mitigated by: (a) clear naming that documents intent (useMatch IS just `computed + apply`, but the name signals the pattern), (b) examples in the spec showing canonical compositions, (c) sibling sugar composables added later when usage patterns prove a specific composition is recurring.
+
+---
