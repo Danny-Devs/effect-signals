@@ -26,12 +26,12 @@
 ### Slice 3 — families + boundaries + Pattern Matching + DevTools breadcrumbs
 
 - ✅ `familyAtom(keyFn)` — parametric atom factories. SHIPPED 2026-04-30. Captures parent scope at family-creation time; `family(key)` is safe from any context (event handlers, microtasks, watchers).
-- ✅ `<AtomBoundary>` async-state slot dispatcher. SHIPPED 2026-04-30. defineComponent + setup-returned render fn; ZERO `h()` calls; permitted by ADR-006's INV-9 clarification. 5 tests.
-- ⏳ Pattern Matching primitive (Effect.Match → template-friendly composable) — NOT STARTED
+- ✅ `<AtomBoundary>` async-state slot dispatcher. SHIPPED 2026-04-30. defineComponent + setup-returned render fn; ZERO `h()` calls; permitted by ADR-006's INV-9 clarification. 6 tests.
+- ✅ `useMatch(source, matcher)` reactive Vue ↔ Effect.Match bridge. SHIPPED 2026-04-30. One-line `computed(() => matcher(source.value))` with type-flexible matcher signature. 5 tests.
 - 📋 Effect-aware `deriveAtom` (if user demand emerges) — DEFERRED
-- 📋 DevTools breadcrumb hooks (interfaces only — actual panel deferred to `@effect-vue/devtools` Phase 3) — NOT STARTED
+- 📋 DevTools breadcrumb hooks (interfaces only — actual panel deferred to `@effect-vue/devtools` Phase 3) — likely DEFER to slice 4 alongside the panel
 
-Slice 3 is roughly 2/3 done. Bundle: 4.01 KB raw / 1.05 KB gzip (verify with `pnpm --filter '@effect-vue/core' build`). Tests: 21 passing.
+Slice 3 essentially done (3 composables shipped, DevTools breadcrumbs deferred). Bundle: 4.15 KB raw / 1.09 KB gzip (verify with `pnpm --filter '@effect-vue/core' build`). Tests: 27 passing.
 
 ### Slice 4 — examples + docs + publish
 

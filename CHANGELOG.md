@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 3 continues: useMatch shipped (Pattern matching context LIVE)
+
+### [feat] @effect-vue/core — `useMatch` reactive Vue ↔ Effect.Match bridge
+
+- `useMatch(source, matcher)` returns a `ComputedRef<A>` that re-evaluates the matcher whenever the source ref changes. The matcher is typed `(input: I) => A` (NOT `Matcher<...>`) so users can pass `Match.value(s).pipe(...)`, pre-built `Match.type<I>().pipe(...)` matchers, or even plain switch expressions.
+- Implementation is intentionally one line — `computed(() => matcher(source.value))`. The semantic value is real despite the triviality: documents intent (pattern-matching, not arbitrary derivation), provides a unified mental model alongside the other 5 composables, gives a hook for future enhancements without refactoring call sites.
+- Type-level exhaustiveness comes for free from `Match.exhaustive`'s type signature — useMatch propagates it without special exhaustiveness logic.
+- 5 vitest cases (27 total): basic match, re-evaluation on source change, computed dedup on equal values, composition with useAsyncAtom + Match.when(undefined), throw propagation via Vue computed.
+- Bundle: 4.15 kB / gzip 1.09 kB (was 1.05 kB → +0.04 kB; trivial because computed is one line).
+
+### [docs] specs + architecture updated
+
+- `specs/useMatch.allium` — first behavioral spec for the pattern-matching context. Documents the deliberate single-source design, the type-flexible matcher signature, and the composition pattern with useAsyncAtom.
+- `ARCHITECTURE.md` Pattern matching context #7 marked LIVE. New subsection explains why useMatch does NOT impose Effect.Match on the matcher type AND why useMatch does NOT cross multiple refs (computed is for multi-ref derivations).
+
+### [chore] slice 3 essentially done
+
+Remaining slice 3 work: DevTools breadcrumb hooks (interfaces only). Likely deferring to slice 4 since DevTools panel itself is Phase 3.
+
 ## [2026-04-30] — slice 3 continues: AtomBoundary shipped + INV-9 clarified via ADR-006
 
 ### [feat] @effect-vue/core — `<AtomBoundary>` async-state slot dispatcher

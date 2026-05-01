@@ -16,7 +16,7 @@ effect-vue decomposes into nine bounded contexts. Each owns a clear responsibili
 | 4 | **Async ergonomics** | Pending/error/data triple for async sources | `useAsyncAtom` ✅ slice 2 LIVE |
 | 5 | **Families** | Parametric atom factories | `familyAtom` ✅ slice 3 LIVE |
 | 6 | **Boundaries** | UI rendering of async-atom state via slot dispatch | `AtomBoundary` ✅ slice 3 LIVE |
-| 7 | **Pattern matching** | Exhaustive view-state matching (Effect.Match → templates) | `useMatch` (slice 3 remaining or 4) |
+| 7 | **Pattern matching** | Reactive Vue ↔ Effect.Match bridge | `useMatch` ✅ slice 3 LIVE |
 | 8 | **Messaging** | Cross-component pub/sub on Effect.Hub | (deferred — `@effect-vue/messaging` future) |
 | 9 | **Telemetry** | OpenTelemetry from browser | (deferred — `@effect-vue/telemetry` future) |
 
@@ -110,6 +110,33 @@ A defineComponent-wrapped reactive renderer over `AsyncAtomState<A, E>`. Holds n
 ### Why defineComponent is permitted here despite INV-9
 
 INV-9 forbids VDOM constructors (`h`, `createVNode`, etc.) but permits `defineComponent` per ADR-006 (2026-04-30). `defineComponent` is a runtime no-op type helper that returns its argument unchanged — it drags zero VDOM weight. The AtomBoundary implementation invokes user slots directly (`slots.pending?.()`) and returns the slot's return value, NEVER constructing VNodes itself. Vapor compatibility is preserved because all VNode creation happens upstream (in user templates that get compiled to Vapor blocks).
+
+## Pattern matching — bounded context detail
+
+**STATUS:** LIVE (slice 3 third composable shipped)
+**FLOW:** source ref/computed → user-provided matcher fn → computed wrapper → ComputedRef of result
+**SOURCE:** `packages/core/src/useMatch.ts` — `useMatch`
+**LAST VERIFIED:** 2026-04-30
+
+### Aggregate root: useMatch
+
+The thinnest-possible bridge between Vue's reactive `Ref` and Effect-TS's `Match` pattern-matching DSL. Implementation is one line: `computed(() => matcher(source.value))`. The semantic value is real despite the implementation triviality:
+- Documents the *intent* (this is a pattern-match, not arbitrary derivation) so codebases stay self-documenting
+- Provides a unified mental model alongside `createAtom` / `useAsyncAtom` / `familyAtom` / `AtomBoundary`
+- Surfaces a hook for future enhancements (memoization keyed on tag, telemetry, etc.) without requiring users to refactor call sites
+
+### Why useMatch does NOT impose Effect.Match on the matcher type
+
+The matcher is typed `(input: I) => A` rather than `Matcher<I, ..., A>` from Effect's type universe. This lets users:
+- Build the matcher with `Match.value(input).pipe(...)` inline (the canonical Effect pattern)
+- Pre-build a reusable matcher with `Match.type<I>().pipe(...)` and pass it directly (since the resulting Matcher is callable as a function)
+- Use a plain switch expression or ternary chain when Effect.Match is overkill
+
+The composable does NOT require `effect/Match` to be imported by the user. Effect.Match is the recommended pattern but not enforced at the type level.
+
+### Why useMatch does NOT cross multiple refs
+
+Multi-ref derivations are what Vue's `computed` is for. useMatch's single-source-ref signature is deliberately narrow — adding multi-ref support would dilute the semantic ("this is pattern-matching on ONE state").
 
 ## Runtime — bounded context detail
 

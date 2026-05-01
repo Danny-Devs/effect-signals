@@ -1,0 +1,134 @@
+composable useMatch<I, A>(
+  source: Ref<I> | ComputedRef<I>,
+  matcher: (input: I) => A,
+): ComputedRef<A>
+
+# Allium behavioral specification for useMatch
+# package: @effect-vue/core
+# source: packages/core/src/useMatch.ts
+# invariants: INV-2 (type fidelity), INV-9 (no VDOM imports)
+
+# ────────────────────────────────────────────────────────────
+# Mental model
+# ────────────────────────────────────────────────────────────
+#
+# `useMatch` is the smallest possible bridge between Vue's reactive `Ref` and
+# Effect-TS's `Match` pattern-matching DSL. It's essentially `computed(() =>
+# matcher(source.value))` with a semantic name — but the semantic name matters
+# because it documents the *intent* (this is a pattern-match, not arbitrary
+# derivation) and provides a unified mental model alongside createAtom,
+# useAsyncAtom, familyAtom, AtomBoundary.
+#
+# The matcher function is intentionally typed `(input: I) => A` rather than
+# `Matcher<I, ..., A>` from Effect's type universe. This lets users build the
+# matcher with Effect.Match.value(input).pipe(...) inside the closure, which
+# is the canonical Effect pattern. The composable does NOT impose an Effect
+# dependency on the matcher type itself — users could pass a plain switch
+# expression if they wanted, though Effect.Match is the recommended use case.
+#
+# Type-level exhaustiveness comes for free from Effect.Match.exhaustive's type
+# signature: if the user's matcher misses a case, .exhaustive type-errors at
+# compile time. useMatch propagates this — no special exhaustiveness logic needed.
+
+PRE
+  - called within a Vue component setup() OR an active effectScope (because computed needs one)
+  - source must be a Ref or ComputedRef (anything Vue treats as a reactive value-holder)
+  - matcher must be a pure function — same input always produces the same output
+    (otherwise computed's caching breaks user expectations)
+
+POST
+  - returns a ComputedRef<A> that re-evaluates when source.value changes
+  - the matcher function is invoked exactly once per source.value change (computed dedup)
+  - the return value of matcher(source.value) becomes the .value of the returned ref
+  - if matcher throws synchronously, the throw propagates from the computed evaluation
+    (Vue's standard computed behavior)
+
+INVARIANTS
+  - INV-2 (Type fidelity): the returned ComputedRef's .value is exactly typed `A`
+    (whatever matcher returns). No widening, no narrowing, no coercion.
+  - INV-9 (No VDOM imports): implementation imports only `computed` from Vue.
+    `computed` is in the permitted-imports allowlist (reactivity primitive, Vapor-preserved).
+
+EFFECTS
+  - registers a Vue computed effect bound to the current effectScope
+  - the computed effect re-runs when source.value changes (transitively reactive deps inside source are also tracked)
+  - cleanup is automatic via Vue's computed lifecycle (no explicit onScopeDispose needed)
+
+ERRORS
+  - if matcher throws: throw propagates via Vue's computed (re-thrown on .value access)
+  - if source is not a Ref/ComputedRef: TS rejects at the call site
+  - if Effect.Match's exhaustive check fails (uncovered case): TS rejects at compile time inside matcher
+
+OBSERVABILITY (conceptual events — not literally emitted)
+  - match.evaluated(input, output) on each computed re-run
+
+EXAMPLES
+
+  # Basic — match a tagged union from a Ref
+  type State =
+    | { _tag: "Loading" }
+    | { _tag: "Loaded"; data: string }
+    | { _tag: "Failed"; error: Error }
+
+  const state = ref<State>({ _tag: "Loading" })
+
+  const message = useMatch(state, (s) =>
+    Match.value(s).pipe(
+      Match.tag("Loading", () => "loading..."),
+      Match.tag("Loaded", ({ data }) => `loaded: ${data}`),
+      Match.tag("Failed", ({ error }) => `error: ${error.message}`),
+      Match.exhaustive,
+    ),
+  )
+  # message: ComputedRef<string>
+  # In template: {{ message }}
+
+  # With useAsyncAtom — useMatch on a derived state
+  const greeting = useAsyncAtom(
+    Effect.succeed("hello").pipe(Effect.delay("100 millis")),
+  )
+  const display = useMatch(greeting.data, (data) =>
+    Match.value(data).pipe(
+      Match.when(undefined, () => "loading"),
+      Match.when(Match.string, (s) => s.toUpperCase()),
+      Match.exhaustive,
+    ),
+  )
+  # display: ComputedRef<string>
+
+  # Composing with familyAtom
+  const userFamily = familyAtom((id: string) =>
+    Effect.flatMap(UserService, s => s.fetchUser(id)),
+  )
+  const aliceState = userFamily("alice")
+  const aliceDisplay = useMatch(aliceState, (user) =>
+    user === undefined ? "loading" : `Hi, ${user.name}`,
+  )
+
+  # Plain switch expression (no Effect.Match) — also valid
+  const isReady = useMatch(state, (s) => s._tag === "Loaded")
+
+NON-GOALS
+  - useMatch does NOT pattern-match across multiple refs (use computed for multi-ref derivations)
+  - useMatch does NOT handle Effect-returning branches — matcher must return synchronously
+    (use useAsyncAtom + a downstream useMatch for async patterns)
+  - useMatch does NOT impose Effect.Match — users can pass any synchronous (input) => output
+    function. Effect.Match is the recommended use case but not required.
+  - useMatch is NOT a renderer — it produces a ComputedRef of a value. For rendering
+    decisions on AsyncAtomState specifically, use AtomBoundary.
+  - useMatch is NOT memoized beyond Vue's computed semantics — same input + matcher gives
+    cache hit ONLY when source.value reference-equals the previous evaluation.
+
+KNOWN LIMITATIONS
+  - The `source` parameter is typed as `Ref<I> | ComputedRef<I>` but does NOT accept
+    plain MaybeRef-style inputs (users can wrap with `ref()` or `toRef()` if needed).
+    Could expand in v0.2 if user demand emerges.
+  - No deep-reactivity tracking inside the matcher function. If matcher closes over
+    additional refs and reads their .value, those become deps too (standard Vue computed
+    behavior). Explicitly noted because it can be a footgun for users who expect strict
+    "only re-evaluate on source change."
+  - Intentionally does NOT wrap Effect.Match's `Match.type<I>()` builder pattern. That
+    builder pre-defines a matcher function applied to many inputs; useMatch's design
+    inverts this (input is reactive, matcher is fresh per evaluation). Users who want
+    the type-builder pattern can call the result themselves: `const m = Match.type<I>().pipe(...);
+    const result = useMatch(source, m)` — this works because m IS a `(input) => output` function.
