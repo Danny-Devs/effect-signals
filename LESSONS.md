@@ -96,3 +96,36 @@ Then `injectAtomRuntime<R>()` becomes typed-tight, and users either pass the run
 **For future agents:** when invoked for a review/critique task, treat the scope as **strictly read+respond**. Do not edit, stage, commit, or write new files in the codebase under review. If you find work that needs doing, NAME it in your critique — do not DO it. Cross-AI review is a tool to deploy bounded and deliberately, not an open invitation to ship.
 
 ---
+
+## [2026-04-30] — Sentinel-undefined collision in `Ref<A | undefined>` state shapes
+
+**Mistake:** Slice 3 shipped `<AtomBoundary>` consuming `useAsyncAtom`'s `{ data, error, pending }` triple where `data: Ref<A | undefined>` and `error: Ref<E | undefined>`. The `undefined` value is the sentinel for "not yet emitted." If A or E themselves include `undefined` (e.g., `Effect.succeed(undefined)` for a domain "no result", or `Effect.fail(undefined)`), the sentinel becomes ambiguous: AtomBoundary's `if (data !== undefined)` check fails for *both* "pending" AND "successfully resolved with undefined." Originally caught during AtomBoundary self-review, not during useAsyncAtom design — meaning the limitation propagated through two slices before being noticed.
+
+**Why it happened:** `Ref<A | undefined>` is the convenient first design — Vue refs need an initial value, `undefined` is the obvious "no value yet" placeholder, and most A types don't include undefined. Slice 1's `createAtom` made the choice; slice 2's `useAsyncAtom` inherited it; slice 3's AtomBoundary inherited it transitively. The collision is invisible until a user has a domain type where `undefined` is meaningful.
+
+**Fix (interim):** Documented in `specs/AtomBoundary.allium` KNOWN LIMITATIONS with workarounds (wrap A/E in `Option<T>` or use the ref triple directly with manual v-if). Added a regression test `[KNOWN LIMITATION] cannot disambiguate Effect.succeed(undefined) from pending — renders nothing` that pins the current behavior. **When useAsyncAtom is redesigned to a discriminated union state shape (`{ status: 'pending' } | { status: 'success', value: A } | { status: 'error', error: E }`), this regression test will fail and force the AtomBoundary update in the same release.**
+
+**For future agents:** when designing a state shape, **never overload `undefined` (or any ambient value) as both a sentinel AND a legitimate value of the type parameter.** Three encoding patterns to prefer:
+1. Discriminated union with explicit status tag — `{ status: 'pending' } | { status: 'success', value: A } | ...`
+2. Wrapper type — `Option<A>`, `Maybe<A>` — making the "no value" case structurally distinct
+3. Separate "has-value" flag — `{ value: A | undefined, hasValue: boolean }` (simpler than DU but less ergonomic)
+
+The interim design (`Ref<A | undefined>`) is acceptable for v0.1 with documented limitations. Any v0.2 surgery that changes the state shape MUST flip the regression test and update AtomBoundary in the same release. Don't ship one without the other.
+
+---
+
+## [2026-04-30] — Spec POST conditions must distinguish "no matching state" from "no provided slot"
+
+**Mistake:** The first version of `specs/AtomBoundary.allium` POST condition #4 said: *"else → renders nothing (returns null) — this case occurs only in the brief gap between mount and first emission for the pending slot's absence."* This conflated TWO distinct cases that both happen to return `null`:
+- **A: state matches a slot, but user didn't provide that slot** (e.g., pending=true, no `pending` slot in user's template). Common case, intentional, normal usage.
+- **B: state doesn't match any slot** (impossible given useAsyncAtom's normal semantics, but possible via the undefined-sentinel collision documented above).
+
+The original wording said #4 only covered case B (and even mis-described case B as a "brief gap"). My own test 4 actually exercises case A. The spec was self-inconsistent.
+
+**Why it happened:** When two distinct conditions produce the same observable output (both render null), it's tempting to fold them into a single POST clause. Doing so erases the *reason* for the null, which matters when readers later try to debug "why is nothing rendering?"
+
+**Fix:** Split the spec POST into two explicit clauses — the priority-ordered branch selection (cases 1-4 by state) AND a separate "if the selected slot is NOT provided by the user, returns null" clause. The two paths to null are now visibly distinct.
+
+**For future agents:** when writing POST conditions, **distinguish observable outputs by their cause, not just their value.** Two paths to the same return value that have different causes need separate clauses. Otherwise a future debugger reads the spec, sees "returns null," and can't tell which path they're hitting.
+
+---

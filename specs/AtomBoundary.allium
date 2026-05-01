@@ -36,16 +36,19 @@ PRE
     Vue render path)
 
 POST
-  - renders exactly ONE of three slots per render based on state values:
-    1. if state.pending.value === true → renders the `pending` slot (no slot scope)
-    2. else if state.error.value !== undefined → renders the `error` slot with scope { error }
-    3. else if state.data.value !== undefined → renders the `default` slot with scope { data }
-    4. else → renders nothing (returns null) — this case occurs only in the brief gap
-       between mount and first emission for the pending slot's absence; expected to be
-       imperceptible in practice but documented for completeness
+  - selects exactly ONE branch per render based on state values, in this priority order:
+    1. if state.pending.value === true → invokes the `pending` slot (no slot scope)
+    2. else if state.error.value !== undefined → invokes the `error` slot with scope { error }
+    3. else if state.data.value !== undefined → invokes the `default` slot with scope { data }
+    4. else (only possible if useAsyncAtom resolved with `undefined` — see KNOWN LIMITATIONS) → returns null
 
-  - the rendered slot is reactive: as state.pending / state.error / state.data change,
-    the appropriate slot is re-rendered
+  - if the selected slot is NOT provided by the user, returns null (e.g., pending state with no
+    `pending` slot). This is distinct from case #4: branch #4 means no slot would have matched
+    even if all slots were provided; the unprovided-slot fallback means a slot WOULD have
+    matched but the user chose not to render that state.
+
+  - the selected branch is reactive: as state.pending / state.error / state.data change,
+    the render function re-runs and the appropriate branch is re-evaluated
 
 INVARIANTS
   - INV-2 (Type fidelity): the `default` slot's scope.data is typed as A (NOT A | undefined),
@@ -123,9 +126,20 @@ NON-GOALS
     scopes are deliberately narrowed (data: A, not data: A | undefined).
 
 KNOWN LIMITATIONS
-  - Defects (Effect.die / unhandled exceptions) keep state.pending true forever
+  - **Undefined-valued A or E creates ambiguity (inherited from useAsyncAtom):**
+    useAsyncAtom uses `Ref<A | undefined>` and `Ref<E | undefined>` where `undefined`
+    is the sentinel for "not yet emitted." If A or E themselves include `undefined`
+    (e.g., `Effect.succeed(undefined)` for a "no result" domain, or `Effect.fail(undefined)`),
+    AtomBoundary cannot distinguish "resolved with undefined" from "not yet resolved" —
+    it falls through to branch #4 and renders nothing. Affected users have two workarounds:
+    (a) wrap their A/E in a non-undefined sentinel (e.g., `Option<T>` instead of `T | undefined`),
+    or (b) use `useAsyncAtom`'s ref triple directly with manual `v-if` rather than AtomBoundary.
+    A v0.2 useAsyncAtom redesign to a discriminated union state shape would resolve this at
+    the source; out of scope for v0.1.0.
+  - **Defects (Effect.die / unhandled exceptions) keep state.pending true forever**
     in useAsyncAtom v0.1.0. AtomBoundary will render the `pending` slot indefinitely
     in that case. If/when useAsyncAtom adds a `defect` ref, AtomBoundary should add
     a `defect` slot in the same release.
-  - The "all slots absent" edge case (state resolved, no `default` slot) renders nothing
-    silently. A future ESLint rule could warn at the call site if no `default` slot is provided.
+  - **No warning if no `default` slot is provided:** silent null render. A future
+    ESLint rule could warn at the call site if no `default` slot is provided when
+    AtomBoundary is used.

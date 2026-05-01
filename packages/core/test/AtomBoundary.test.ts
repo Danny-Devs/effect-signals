@@ -98,6 +98,38 @@ describe("AtomBoundary", () => {
     expect(wrapper.find(".wrapper").text()).toBe("")
   })
 
+  // Regression test for the documented limitation: useAsyncAtom's `data: Ref<A | undefined>`
+  // sentinel collides with legitimate `undefined` values. AtomBoundary inherits this
+  // ambiguity. If/when useAsyncAtom is redesigned to a discriminated union state shape,
+  // this test should fail (the success-with-undefined case should render the default slot
+  // with `data: undefined`). Until then, the test pins the current behavior.
+  it("[KNOWN LIMITATION] cannot disambiguate Effect.succeed(undefined) from pending — renders nothing", async () => {
+    const Comp = defineComponent({
+      components: { AtomBoundary },
+      setup() {
+        const state = useAsyncAtom(
+          // Effect that resolves to undefined — domain "no result" sentinel.
+          Effect.succeed(undefined as undefined).pipe(Effect.delay("10 millis")),
+        )
+        return { state }
+      },
+      template: `
+        <div class="wrapper">
+          <AtomBoundary :state="state">
+            <template #default="{ data }"><span class="slot">resolved:{{ data === undefined ? 'undef' : data }}</span></template>
+          </AtomBoundary>
+        </div>
+      `,
+    })
+    const wrapper = mount(Comp)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await nextTick()
+    // Even though the effect succeeded, AtomBoundary cannot tell — renders nothing.
+    // When useAsyncAtom moves to a discriminated union, this assertion will flip.
+    expect(wrapper.find(".slot").exists()).toBe(false)
+    expect(wrapper.find(".wrapper").text()).toBe("")
+  })
+
   it("transitions reactively pending → resolved without unmounting the boundary", async () => {
     const renders: string[] = []
     const Comp = defineComponent({
