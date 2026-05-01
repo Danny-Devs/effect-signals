@@ -144,3 +144,33 @@ The original wording said #4 only covered case B (and even mis-described case B 
 Tradeoff to acknowledge: minimal primitives require users to compose them, which has its own learning curve. Mitigated by: (a) clear naming that documents intent (useMatch IS just `computed + apply`, but the name signals the pattern), (b) examples in the spec showing canonical compositions, (c) sibling sugar composables added later when usage patterns prove a specific composition is recurring.
 
 ---
+
+## [2026-04-30] — A check that compiles ≠ a check that's being checked
+
+**Mistake:** End-of-slice-3 review added `packages/core/test/AtomBoundary.types.check.ts` — a TS-only assertion file proving the export-cast pattern preserves generics through to user slot scopes. Ran `pnpm typecheck`, saw "Done", assumed verification was successful. **The package's `tsconfig.json` excludes `test/**/*` — vue-tsc was silently NOT checking the file.** The "Done" output was true (src/ typechecked clean) but irrelevant to the new file's purpose. A check file that proves nothing is worse than no check file: it creates false confidence that a contract is verified.
+
+**Why it happened:** The default mental model is "I added a check, the gate passed, the check is enforcing." For runtime tests this is true (vitest discovers all `*.test.ts` files). For type-level checks under tsconfig with explicit excludes, it's not. The exclude was set during slice 1 to keep the production build's type emission focused on src/ — a perfectly reasonable choice that became invisible to me when I added a new check file in test/.
+
+**Fix:** Added `packages/core/tsconfig.test.json` with `include: ["src/**/*", "test/**/*"]` and updated the typecheck script to run BOTH configs (`vue-tsc --noEmit && vue-tsc -p tsconfig.test.json --noEmit`). Then **deliberately sabotaged one of the MUST-WORK assertions** (replaced `// @ts-expect-error` comment with a non-suppressing comment) and confirmed `pnpm typecheck` failed with the real error. Restored the file. This proves the check file is now genuinely being checked.
+
+**For future agents:** when you add ANY new verification mechanism — a test file, a lint rule, a type-level assertion, a CI step — **deliberately sabotage it once and confirm the gate catches the sabotage.** "The gate passed" is not the same as "the gate is enforcing." The sabotage step is the only way to distinguish between:
+- (a) "the new check passed because the code is correct"
+- (b) "the new check passed because it isn't being run"
+
+This is the same epistemics as `feedback_paranoid_verification` ("agent FIXED ≠ deployed") applied to verification mechanisms themselves. The cost is one extra command + one revert; the benefit is catching false-confidence configurations before they ossify.
+
+---
+
+## [2026-04-30] — End-of-slice review catches three classes of bugs invisible to per-composable self-review
+
+**Observation (not a single mistake — a meta-lesson):** Per-composable self-review caught real bugs in 2 of 3 slice 3 composables. End-of-slice review caught bugs in **3 ADDITIONAL areas** that no per-composable review could have found:
+
+1. **Cross-composable integration gap:** `familyAtom` returns `Ref<A | undefined>` but `<AtomBoundary>` requires `AsyncAtomState<A, E>`. Each composable's tests passed in isolation; the gap was invisible until an integration test forced a real composition. Documented as a known gap pinning current behavior; if a future helper closes the gap, the test should be supplemented.
+
+2. **Verification not actually running:** the new `.check.ts` file was silently excluded from vue-tsc by the package's tsconfig — see the entry above.
+
+3. **Architectural decision made under pressure that didn't survive scrutiny:** familyAtom's silent-leak fallback for post-disposal `family(k)` calls was a pragmatic shortcut that violated INV-1's spirit. End-of-slice review forced the explicit decision: throw with a useful error message rather than leak. Caught only because the slice boundary review explicitly asked "what behaviors did I document but not test, and are those behaviors correct?"
+
+**For future agents:** the per-composable self-review and the end-of-slice review are NOT the same exercise. Per-composable review checks "does this thing work?" End-of-slice review checks "do these things work TOGETHER, are my verifications actually verifying, and did I make any decisions under pressure that need scrutiny?" Both are necessary; neither replaces the other. **Schedule both into every slice's done-criteria.** The cost of end-of-slice review on slice 3: ~30 minutes (one cross-composable integration test file, one type-check assertion file with sabotage proof, one behavior-decision implementation + test). The value: 3 classes of bugs caught before they ossify across slice boundaries.
+
+---

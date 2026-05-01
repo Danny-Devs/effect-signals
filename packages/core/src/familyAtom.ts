@@ -48,14 +48,27 @@ export function familyAtom<K, A, E, R>(
       return cached
     }
 
-    // If the parent scope is alive, run member creation inside it so onScopeDispose
-    // binds to the family's scope rather than the call-site's scope. If we never had
-    // a parent scope, or the captured scope has since stopped, fall back to scopeless
-    // creation — matches createAtom's loose semantic when called outside any scope.
-    const created = parentScope
-      ? parentScope.run(() => createMember(factory(key), runtime))
-      : undefined
-    const member = created ?? createMember(factory(key), runtime)
+    let member: Ref<A> | Ref<A | undefined>
+    if (parentScope) {
+      // Family was created inside an active scope. Run member creation inside
+      // that scope so onScopeDispose binds to the family's scope (not the
+      // call-site's transient scope). If parentScope.run returns undefined the
+      // captured scope has been stopped — throw rather than silently leak a fiber.
+      const created = parentScope.run(() => createMember(factory(key), runtime))
+      if (created === undefined) {
+        throw new Error(
+          "familyAtom: cannot create new member — the family's parent scope has been disposed. "
+          + "Cached members remain valid; only NEW keys cannot be added after disposal.",
+        )
+      }
+      member = created
+    }
+    else {
+      // Family was created outside any active scope (e.g., at module top level).
+      // Fall back to scopeless creation — matches createAtom's loose semantic.
+      // Documented limitation: fibers spawned this way run untracked until page unload.
+      member = createMember(factory(key), runtime)
+    }
     cache.set(key, member)
     return member
   }

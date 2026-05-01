@@ -123,6 +123,41 @@ describe("familyAtom", () => {
     expect(wrapper.find(".result").text()).toBe("12")
   })
 
+  it("throws on family(NEW_KEY) after parent scope is disposed (INV-1 protection)", () => {
+    // Cached members keep working post-disposal (their refs remain valid).
+    // But adding a NEW key after the scope dies would create an untracked fiber
+    // that violates INV-1. The library throws with a clear message instead.
+    const scope = effectScope()
+    let family: ReturnType<typeof familyAtom<number, number, never>>
+    scope.run(() => {
+      family = familyAtom((n: number) =>
+        Effect.succeed(n * 10).pipe(Effect.delay("1 millis")),
+      )
+      family(1) // pre-populate the cache
+    })
+
+    // Cached member is still accessible — pinning the "cached members remain valid" claim
+    expect(() => family!(1)).not.toThrow()
+
+    scope.stop()
+
+    // NEW key after disposal — must throw
+    expect(() => family!(99)).toThrow(/parent scope has been disposed/)
+
+    // Cached member still works (returns the cached ref)
+    expect(() => family!(1)).not.toThrow()
+  })
+
+  it("falls through silently when familyAtom is called with no active scope (matches createAtom)", () => {
+    // Different from the post-disposal case: parentScope was NEVER captured
+    // because familyAtom was called outside any active scope. This matches
+    // createAtom's loose semantic. The fiber runs untracked (documented limitation).
+    // Verifies the behavioral split: throw on dead scope vs fall through on no scope.
+    const family = familyAtom((n: number) => n * 2)
+    expect(() => family(7)).not.toThrow()
+    expect(family(7).value).toBe(14)
+  })
+
   it("interrupts every member fiber on parent-scope dispose (INV-1) and is idempotent (INV-5)", async () => {
     // Use Effect.never so fibers run forever until interrupted — onInterrupt
     // increments a counter we can assert against, proving the fiber was actually

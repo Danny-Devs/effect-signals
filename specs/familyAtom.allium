@@ -87,7 +87,12 @@ KEY EQUALITY
 
 ERRORS
   - if no scope is active when familyAtom is called: family(k) still works but cleanup is NOT registered
-    (matches createAtom's loose semantic; document as known limitation, do not throw)
+    (matches createAtom's loose semantic; documented as known limitation, does NOT throw)
+  - if parentScope was active at familyAtom time but is now stopped (parent component unmounted, etc.):
+    family(NEW_KEY) THROWS with message "familyAtom: cannot create new member — the family's parent
+    scope has been disposed. Cached members remain valid; only NEW keys cannot be added after disposal."
+    Cached members (from before disposal) remain accessible via family(EXISTING_KEY) — the cache lookup
+    happens before any scope check.
   - if R != never, no runtime is injected, and unsafe overload is used: runtime error on first family(key) call
     (NOT at familyAtom call time — Effect.runFork fails when it tries to satisfy R)
   - if the factory throws synchronously: the throw propagates from family(key); the cache is NOT populated for that key
@@ -151,3 +156,7 @@ KNOWN LIMITATIONS
     the runtime lookup happens AT familyAtom CALL TIME, not at family(key) call time.
   - If familyAtom is called outside any active scope (e.g., at module top level), no cleanup is registered.
     Cached fibers will run until the page unloads.
+  - When `parentScope.run()` returns undefined (scope dead), Vue logs an internal warning
+    ("cannot run an inactive effect scope") BEFORE the library's clearer error throws. The Vue warning
+    cannot be suppressed without try/catch trickery; users will see both messages. The library's error
+    is the actionable one.

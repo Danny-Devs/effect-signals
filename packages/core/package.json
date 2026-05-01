@@ -25,7 +25,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit && vue-tsc -p tsconfig.test.json --noEmit"
   },
   "peerDependencies": {
     "effect": "catalog:",
