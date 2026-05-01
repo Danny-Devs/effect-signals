@@ -10,8 +10,8 @@ All notable changes to this project will be documented here. Append-only.
 - Supports Effect, Stream, and plain-value factories with the same overload structure as `createAtom`. R-preservation overloads included (type-safe runtime parameter + unsafe injected-runtime variant).
 - Runtime is resolved ONCE at `familyAtom` call time (not per-key) — `family(k)` is safe to call from event handlers, watchers, microtasks, or any non-`setup()` context.
 - Parent `effectScope` is captured at family-creation time; all members' fibers register cleanup with that scope (NOT the call-site's scope), so transient child scopes can't prematurely interrupt cached members.
-- 5 new vitest cases (15 total): cache hit/miss identity, factory-call-count, async resolution, runtime captured at creation time + safe non-setup call, family-scope cleanup with INV-5 idempotence.
-- Bundle: 3.52 kB / gzip 0.86 kB (was 0.67 kB → +0.19 kB; under INV-11's 0.5 kB per-composable budget).
+- 6 new vitest cases (16 total): cache hit/miss identity, factory-call-count, async Effect resolution, Stream-based factory subscription, runtime captured at creation time + safe non-setup call, and INV-1+INV-5 family-scope cleanup proven via `Effect.never` + `Effect.onInterrupt` counter (proves fibers were *actually* interrupted, not merely that `scope.stop()` did not throw).
+- Bundle: 3.49 kB / gzip 0.86 kB (was 0.67 kB → +0.19 kB; under INV-11's 0.5 kB per-composable budget).
 
 ### [docs] specs + architecture updated
 

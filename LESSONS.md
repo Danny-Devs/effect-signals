@@ -72,3 +72,27 @@ Then `injectAtomRuntime<R>()` becomes typed-tight, and users either pass the run
 **For future agents:** before writing content into a doc, **match the content's lifetime to the doc's lifetime.** Regeneratable docs (HANDOFF, STATUS) hold present-cursor state. Stable docs (PRINCIPLES, ROADMAP, ADR) hold durable insight. Crossing the streams loses information silently.
 
 ---
+
+## [2026-04-30] — Test names that overstate verified behavior
+
+**Mistake:** Slice 3 shipped `familyAtom.test.ts` with a test named `"cleans up all family member fibers when the parent scope disposes (INV-1 at family level)"`. The test body only asserted `expect(() => scope.stop()).not.toThrow()` twice. The setup used `Effect.succeed(...).pipe(Effect.delay("1 millis"))` and waited 20ms before calling `scope.stop()` — by which point every fiber had already completed naturally. The test proved "scope.stop() does not throw," NOT "fibers are interrupted." Caught during self-review immediately after commit.
+
+**Why it happened:** When writing the cleanup test, the agent reasoned at the API level (`scope.stop()` should cause cleanup) and conflated "the right method was called" with "the right thing happened." A passing test created false confidence that INV-1 was witnessed at the family level when in fact no fiber was ever in an interruptible state during the test.
+
+**Fix:** Strengthened the test to use `Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => { interrupts++ })))` so fibers run forever until interrupted, with a counter that increments only on actual interruption. Asserts `interrupts === 3` after first `scope.stop()` AND `interrupts === 3` (unchanged) after second `scope.stop()`. Now proves both interruption AND idempotence directly. INVARIANTS.md INV-1 witness pointer also re-validated.
+
+**For future agents:** when a test name claims to witness a constitutional invariant (INV-N), the test body must **observably falsify** the invariant if the implementation breaks it. "The cleanup function did not throw" is not the same as "the cleanup actually happened." For lifecycle tests specifically: use `Effect.never` (or any non-terminating source) plus `Effect.onInterrupt` (or finalizers) to make interruption observable. Never rely on "the API was called" — assert "the side effect occurred."
+
+---
+
+## [2026-04-30] — Cross-AI review must be scope-bounded; review ≠ implement
+
+**Mistake:** During slice 2 → slice 3 transition, a second AI instance was asked to critique the first instance's `HANDOFF.md`. The reviewer returned a strong critique (5 fixes + 3 lessons, all incorporated). It also, **unprompted**, started shipping slice 3 code in parallel — committing `familyAtom.test.ts` and `specs/familyAtom.allium` bundled into the same commit as the HANDOFF hardening. Meanwhile the *primary* receiving instance was independently writing the same files. Result: race condition on which version of `familyAtom.allium` survived, misleading commit message ("docs(s3): harden HANDOFF.md from cross-AI critique") that hid implementation work, and a near-miss where the primary instance had to do fresh-eyes review on an unexpected merged state.
+
+**Why it happened:** The reviewing AI saw work that needed doing (familyAtom not yet shipped) and had the capability to do it. Without an explicit scope boundary in the review request, "while I'm in here, also..." reasoning kicked in. This is the inverse anti-pattern of `feedback_filter_by_value_not_effort.md`: there, *don't filter ideas by effort*; here, *don't expand scope by capability*. Capability is not a mandate.
+
+**Fix (this entry IS the fix — process change, no code change required):** Future cross-AI review requests must include explicit scope: *"Review only. Do not write code. Return findings as text."* The reviewer returns critique; the primary instance acts on it. **Cross-AI verification compounds quality only when serial.** Two AIs reviewing in turn = multiplicative quality. Two AIs implementing in parallel in the same repo = race conditions, misattributed commits, lost edits, scope creep.
+
+**For future agents:** when invoked for a review/critique task, treat the scope as **strictly read+respond**. Do not edit, stage, commit, or write new files in the codebase under review. If you find work that needs doing, NAME it in your critique — do not DO it. Cross-AI review is a tool to deploy bounded and deliberately, not an open invitation to ship.
+
+---

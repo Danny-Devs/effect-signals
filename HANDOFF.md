@@ -41,7 +41,7 @@ Parallel-edited commits during this same session: `3cde193` (HANDOFF.md hardenin
 - **Slice 1 (atoms + runtime):** ✅ SHIPPED — `createAtom`, `provideAtomRuntime`, `injectAtomRuntime`
 - **Slice 2 (async ergonomics + R-preservation):** ✅ SHIPPED — `useAsyncAtom`, R-overload extension, INV-4 witness test
 - **Slice 3 (families + boundaries + matching + DevTools):** 🚧 IN PROGRESS (~25% done)
-  - ✅ `familyAtom` SHIPPED this session — 5 tests, 0.86 kB gzip
+  - ✅ `familyAtom` SHIPPED this session — 6 tests, ~0.86 kB gzip (5 initial + 1 from self-review pass: Stream factory + strengthened cleanup test using `Effect.never` + `onInterrupt` to *prove* fiber interruption rather than just non-throw on dispose)
   - ⏳ `<AtomBoundary>` SFC component — NOT STARTED
   - ⏳ Pattern Matching primitive (`useMatch`) — NOT STARTED
   - ⏳ DevTools breadcrumb hooks (interfaces only) — NOT STARTED
@@ -51,10 +51,10 @@ Parallel-edited commits during this same session: `3cde193` (HANDOFF.md hardenin
 ## Live metrics (verify — do not trust this snapshot blindly)
 
 ```bash
-pnpm test         # expect: 15/15 passing (atom: 6, useAsyncAtom: 4, familyAtom: 5)
+pnpm test         # expect: 16/16 passing (atom: 6, useAsyncAtom: 4, familyAtom: 6)
 pnpm typecheck    # expect: clean
 pnpm lint         # expect: clean
-pnpm --filter '@effect-vue/core' build  # expect: 3.49 kB / gzip 0.86 kB
+pnpm --filter '@effect-vue/core' build  # expect: ~3.5 kB / gzip ~0.86 kB
 ```
 
 If any fail, investigate before any new work.
@@ -83,7 +83,7 @@ If any fail, investigate before any new work.
 
 ## Cross-cutting open questions (priority-tagged) — carried forward unchanged
 
-1. **`[SLICE 3 SCOPE]` Should `provideAtomRuntime` register `onScopeDispose` to dispose the underlying ManagedRuntime?** Currently NO. Flagged in `specs/provideAtomRuntime.allium`. Now with `familyAtom` shipped, families with long-lived runtimes might leak Layer resources at scope dispose. Resolve before AtomBoundary lands so the auto-dispose decision applies uniformly.
+1. **`[SLICE 3 SCOPE]` Should `provideAtomRuntime` register `onScopeDispose` to dispose the underlying ManagedRuntime?** Currently NO. Flagged in `specs/provideAtomRuntime.allium`. **NOT a blocker for any specific composable** — verified during slice 3 self-review: familyAtom captures runtime once at creation time and member fibers tie cleanup to the parent scope; the runtime's *resource* lifetime (does ManagedRuntime auto-dispose?) is orthogonal to whether atoms/families ship correctly. Resolve when the cost of NOT auto-disposing becomes visible (long-running SPAs accumulating Layer resources across navigation), not before.
 2. **`[DEFER]` Should defects (Cause.Die) be surfaced via a separate `defect` ref in `useAsyncAtom`?** Slice 2 chose silent fiber-log. AtomBoundary may surface this naturally if it has an error slot; reconsider when AtomBoundary's error semantics are designed.
 3. **`[DEFER]` Effect-aware `deriveAtom`** — no demand yet, no scope debt.
 
