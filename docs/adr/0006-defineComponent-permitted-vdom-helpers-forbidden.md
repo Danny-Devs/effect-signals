@@ -5,6 +5,9 @@
 **Supersedes:** N/A (clarifies INV-9, does not supersede prior ADR)
 **Superseded by:** ADR-007 — slice 4 dogfooding showed the export-cast pattern fails to propagate generics through Vue's SFC template type-checking. The INV-9 import allowlist/denylist split from this ADR remains valid; the implementation strategy (`.ts` + export-cast) is replaced with `.vue` SFC + `<script setup generic>`.
 
+> ⚠️ **SUPERSEDED — read [ADR-007](./0007-sfc-for-generic-components.md) first.**
+> The implementation strategy described below (`.ts` + `defineComponent` + export-cast) was found to silently break generic propagation through Vue's SFC template type-checking. Templates are Vue's primary usage pattern. The INV-9 import allowlist/denylist split discussed below remains valid; the `.ts + export-cast` implementation pattern does NOT. If you arrived here via a search or commit-history link, do NOT apply the implementation pattern — apply ADR-007 instead.
+
 ## Context
 
 INV-9 ("No VDOM-specific imports") was authored during slice 1 with the wording:
