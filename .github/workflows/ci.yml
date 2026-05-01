@@ -26,11 +26,16 @@ jobs:
 
       - run: pnpm lint
 
+      # Build core BEFORE typecheck — the meta-package's tsconfig.test.json
+      # imports from "effect-vue" which re-exports from "@effect-vue/core"
+      # whose types live in dist/. Without an upfront build the dist/ doesn't
+      # exist on a clean CI checkout and the meta-package's dogfood typecheck
+      # fails to resolve the re-exports.
+      - run: pnpm build
+
       - run: pnpm typecheck
 
       - run: pnpm test
-
-      - run: pnpm build
 
       - name: Verify published-tarball invariants (INV-10)
         run: pnpm verify:tarballs
