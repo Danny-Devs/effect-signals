@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — HANDOFF.md added as 11th S3 layer + ADR layer
+
+### [docs] HANDOFF.md introduced — Continuity layer of Swee Spec Stack
+
+Added `HANDOFF.md` to capture present-cursor state at session end. Discovered as a real gap during this session when AI instance approached ~330K tokens and handoff to a fresh instance became practical. Distinct from CHANGELOG (history), ROADMAP (future), LESSONS (mistakes), AGENTS (rules) — captures *where the cursor is right now*. Regeneratable, not appended; overwritten each session like Night Suite's STATUS.md.
+
+S3 methodology updated in `project_swee_spec_stack.md` memory: now eleven layers, with HANDOFF as layer 11 (Continuity). effect-vue is the first reference implementation of the full 11-layer stack.
+
+### [docs] AGENTS.md reading order extended to include HANDOFF.md
+
+### [docs] ADR layer (0001-0005) added — capturing decisions while fresh
+
+- 0001 Monorepo from day one
+- 0002 Atom IS a Vue Ref (not a separate Atom type like atom-react)
+- 0003 tsdown (Rolldown-based) for library builds
+- 0004 pnpm 9 catalog protocol for shared dependency versions
+- 0005 R-preservation via overload set
+
 ## [2026-04-30] — slice 2: useAsyncAtom + R-preservation in createAtom
 
 ### [feat] @effect-vue/core slice 2 shipped

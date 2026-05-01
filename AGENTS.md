@@ -12,9 +12,10 @@
 6. **INVARIANTS.md** — constitutional rules (Tier 1, 2, 3)
 7. **ARCHITECTURE.md** — bounded contexts + data flow
 8. **CHANGELOG.md** (last 3 entries) — what changed recently
-9. **LESSONS.md** — mistakes encoded against (skim for relevant entries)
+9. **LESSONS.md** — mistakes encoded against (skim for relevant entries; first entry is the R-tracking limitation in createAtom — already FIXED in slice 2)
 10. **specs/*.allium** — behavioral specs for any composable you're touching
 11. **docs/adr/** — architectural decision records
+12. **HANDOFF.md** — current cursor position (where the previous agent left off, what's in flight, what's the immediate next action). **Regeneratable** — overwrite at end of every working session, do not append.
 
 ## Working rules
 
