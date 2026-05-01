@@ -94,22 +94,26 @@ Each cached atom's fiber needs cleanup tied to the family's lifetime, NOT the ca
 
 ## Boundaries — bounded context detail
 
-**STATUS:** LIVE (slice 3 second composable shipped)
-**FLOW:** state.pending/error/data reactive reads → setup-returned render fn → slot dispatch (one of `pending` / `error({error})` / `default({data})`) → user's slot template renders to VNode/Vapor block
-**SOURCE:** `packages/core/src/AtomBoundary.ts` — `AtomBoundary`
+**STATUS:** LIVE (slice 3 second composable shipped; revised in slice 4 to ship as `.vue` SFC per ADR-007)
+**FLOW:** state.pending/error/data reactive reads → SFC `<template>` `v-if`/`v-else-if`/`v-else` cascade → slot dispatch (one of `pending` / `error({error})` / `default({data})`) → user's slot template renders to VNode/Vapor block
+**SOURCE:** `packages/core/src/AtomBoundary.vue` — `AtomBoundary`
 **LAST VERIFIED:** 2026-04-30
 
 ### Aggregate root: AtomBoundary
 
-A defineComponent-wrapped reactive renderer over `AsyncAtomState<A, E>`. Holds no state of its own; delegates rendering to one of three user-provided slots based on the state-reading branch chosen at render time. The setup function returns a closure-captured render function — all reactivity lives in Vue's reactive system, not in the component.
+A `.vue` SFC using `<script setup lang="ts" generic="A, E">` to declare `state: AsyncAtomState<A, E>` as a typed prop and `defineSlots<{...}>()` to declare typed slot scopes. The `<template>` cascades through `v-if="state.pending.value"` → `v-else-if="state.error.value !== undefined"` → `v-else-if="state.data.value !== undefined"` and dispatches the matching slot (or renders nothing if no slot is provided / no branch matches).
 
 ### Why this is its own bounded context (not folded into Async ergonomics)
 
 `useAsyncAtom` (context 4) owns the *state shape* — the `{data, error, pending}` triple's semantics, atomicity (INV-4), and lifecycle. AtomBoundary owns the *rendering policy* — how to map state to UI. Splitting them means useAsyncAtom can be consumed by template-only patterns (raw `v-if/v-else-if/v-else`) without dragging AtomBoundary into the bundle, and AtomBoundary can be replaced by a different rendering policy (e.g., a future Suspense-integrated boundary) without changing useAsyncAtom.
 
-### Why defineComponent is permitted here despite INV-9
+### Why SFC + `<script setup generic>` rather than `defineComponent` + export-cast (revised slice 4)
 
-INV-9 forbids VDOM constructors (`h`, `createVNode`, etc.) but permits `defineComponent` per ADR-006 (2026-04-30). `defineComponent` is a runtime no-op type helper that returns its argument unchanged — it drags zero VDOM weight. The AtomBoundary implementation invokes user slots directly (`slots.pending?.()`) and returns the slot's return value, NEVER constructing VNodes itself. Vapor compatibility is preserved because all VNode creation happens upstream (in user templates that get compiled to Vapor blocks).
+The original implementation (per superseded ADR-006) used `defineComponent` in a `.ts` file with an export-cast `as unknown as new<A, E>() => { $props, $slots }`. The cast preserved generics through `h(AtomBoundary, ...)` render-function usage but FAILED to propagate generics through Vue's SFC template type-checking — the most common usage pattern. ADR-007 (slice 4 dogfooding) revised the implementation to a `.vue` SFC; vue-tsc reads slot types from `defineSlots<{...}>()` declarations parameterized by the SFC's `generic="A, E"` block, and the generics propagate end-to-end through SFC templates. The build pipeline gains `@vitejs/plugin-vue` (in tsdown) and a separate `vue-tsc -p tsconfig.build.json` step for type emission (TypeScript itself cannot read .vue files; only vue-tsc can).
+
+### INV-9 compliance
+
+The SFC's `<script>` block imports only `defineProps`/`defineSlots` (compile-time macros, runtime no-ops) and the AsyncAtomState type — no VDOM constructors. The `<template>` block's compilation produces VNodes/Vapor-blocks via Vue's compiler, which is the legitimate authoring surface and NOT an INV-9 violation per ADR-007's clarification.
 
 ## Pattern matching — bounded context detail
 

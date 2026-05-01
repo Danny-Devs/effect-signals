@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 4 begins: AtomBoundary refactored to .vue SFC + ADR-007
+
+### [refactor] @effect-vue/core — `<AtomBoundary>` ships as `.vue` SFC
+
+Slice 4 dogfooding (`examples/basic`) immediately exposed an INV-2 (type fidelity) violation in the original `defineComponent` + export-cast implementation: the cast preserved generics through `h(AtomBoundary, ...)` render-function usage but FAILED to propagate generics through Vue's SFC template type-checking. Templates are Vue's primary usage pattern, so the contract was silently broken in the most common case.
+
+Architectural fix:
+
+- **AtomBoundary now ships as `packages/core/src/AtomBoundary.vue`** using `<script setup lang="ts" generic="A, E">` with `defineProps<{state: AsyncAtomState<A, E>}>()` and `defineSlots<{...}>()`. Slot scope generics (`data: A`, `error: E`) propagate end-to-end through SFC templates verified by sabotage in `examples/basic`.
+- **Build pipeline now compiles SFCs.** tsdown gains `@vitejs/plugin-vue` for JS bundling; `vue-tsc -p tsconfig.build.json` runs in a separate step for type emission (TypeScript itself does NOT understand .vue files; only vue-tsc does).
+- **Vitest config gains `@vitejs/plugin-vue`** so tests can import the SFC.
+- **Workspace devDeps gain `@vitejs/plugin-vue`, `vue`, `effect`** at the root level (vitest's plugin loader requires explicit resolution paths; previously `@vue/test-utils` provided indirect access).
+- **Published artifact:** `dist/index.mjs` (4.61 kB raw / 1.26 kB gzip — was 1.21 kB → +0.05 kB for SFC runtime helpers, well under INV-8's 5 kB ceiling) + `dist/*.d.ts` per-file (vue-tsc emits per-file; `dist/index.d.ts` re-exports including from `./AtomBoundary.vue`).
+- **`exports` map updated** from `./dist/index.d.mts` → `./dist/index.d.ts` (vue-tsc emits the latter).
+
+All 34 existing tests (including the 6 AtomBoundary runtime tests and the .check.ts type-assertion file) pass without modification — the API surface is identical, only the implementation file changed.
+
+### [docs] ADR-007 supersedes ADR-006
+
+- `docs/adr/0007-sfc-for-generic-components.md` — formal record of the build-pipeline change. ADR-006's INV-9 import allowlist/denylist split remains valid; the implementation strategy (`.ts` + export-cast) is replaced.
+- `docs/adr/0006-defineComponent-permitted-vdom-helpers-forbidden.md` — status updated to "Superseded by ADR-007"; original content preserved (append-only convention).
+- `INVARIANTS.md` INV-9 — references both ADRs; adds `.vue` SFC carve-out clarifying that an SFC's `<template>` block produces VNodes via Vue's compiler, which is legitimate authoring surface, NOT an INV-9 violation.
+- `ARCHITECTURE.md` Boundaries context — flow updated to reflect the SFC implementation; new subsection explaining the slice 4 revision.
+- `specs/AtomBoundary.allium` — source pointer updated to the .vue file; ADR references updated.
+
+### [chore] Sabotage-verification of the architectural fix
+
+Per LESSONS.md "A check that compiles ≠ a check that's being checked," the example's typecheck was sabotaged after the refactor: replaced `data.items.join(", ")` in the `#default` slot with `data.nonExistentField.toUpperCase()`. vue-tsc failed with `Property 'nonExistentField' does not exist on type '{ items: string[]; }'` — confirming the slot scope is genuinely typed `{ items: string[] }` end-to-end through the SFC build, the published types, and the consumer's vue-tsc. Restored.
+
 ## [2026-04-30] — slice 3 continues: useMatch shipped (Pattern matching context LIVE)
 
 ### [feat] @effect-vue/core — `useMatch` reactive Vue ↔ Effect.Match bridge

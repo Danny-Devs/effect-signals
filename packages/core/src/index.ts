@@ -1,7 +1,6 @@
 export { createAtom } from "./atom.js"
 export type { AtomSource } from "./atom.js"
-export { AtomBoundary } from "./AtomBoundary.js"
-export type { AtomBoundarySlots } from "./AtomBoundary.js"
+export { default as AtomBoundary } from "./AtomBoundary.vue"
 export { familyAtom } from "./familyAtom.js"
 export { injectAtomRuntime, provideAtomRuntime } from "./runtime.js"
 export { useAsyncAtom } from "./useAsyncAtom.js"

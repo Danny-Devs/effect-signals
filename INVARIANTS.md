@@ -61,11 +61,13 @@
 **Witness:** CI step in `.github/workflows/ci.yml` — run `pnpm --filter @effect-vue/core build`, measure gzipped size, fail if >5KB.
 
 ### INV-9: No VDOM-specific imports
-**Rule:** `@effect-vue/core/src` never imports VDOM constructors. Vapor-forward by construction. Clarified by [ADR-006](docs/adr/0006-defineComponent-permitted-vdom-helpers-forbidden.md) (2026-04-30).
+**Rule:** `@effect-vue/core/src` never imports VDOM constructors. Vapor-forward by construction. Allowlist/denylist split clarified by [ADR-006](docs/adr/0006-defineComponent-permitted-vdom-helpers-forbidden.md) (2026-04-30); component implementation strategy revised by [ADR-007](docs/adr/0007-sfc-for-generic-components.md) (same day) — generic components ship as `.vue` SFCs, not `.ts` + export-cast.
 
 **Forbidden in `src/` (VDOM constructors):** `h`, `createVNode`, `createElementVNode`, `createBlock`, `createElementBlock`, `Fragment`, `Text`, `Comment`, and any other Vue export from the `@vue/runtime-core` VDOM construction surface. These produce VNode objects and are NOT preserved by Vapor compilation.
 
 **Permitted in `src/` (runtime no-op helpers + reactivity/scope/DI):** `defineComponent`, `defineProps`, `defineEmits`, `defineSlots`, `getCurrentInstance`, `getCurrentScope`, `effectScope`, `onScopeDispose`, `provide`, `inject`, `ref`, `computed`, `watch`, `watchEffect`, plus type-only Vue exports. These are either runtime no-ops (return arg unchanged) or part of Vue's reactivity/scope/DI system that survives Vapor.
+
+**`.vue` SFC carve-out:** A `.vue` SFC's `<template>` block produces VNodes/Vapor-blocks via Vue's compiler — that's the legitimate authoring surface, NOT an INV-9 violation. Inside the `<script>` block of an SFC, the same allowlist/denylist applies as any `.ts` file in src/.
 
 **Test code (`test/`) carve-out:** `h` and other VDOM constructors are permitted in test files for component-mounting test utilities. Tests do not ship to consumers.
 

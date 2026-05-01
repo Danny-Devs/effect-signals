@@ -59,12 +59,18 @@ importers:
       '@antfu/eslint-config':
         specifier: 'catalog:'
         version: 3.16.0(@typescript-eslint/utils@8.59.1(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(@vue/compiler-sfc@3.5.33)(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)(vitest@2.1.9(happy-dom@15.11.7))
+      '@vitejs/plugin-vue':
+        specifier: 'catalog:'
+        version: 5.2.4(vite@5.4.21)(vue@3.5.33(typescript@5.9.3))
       '@vue/test-utils':
         specifier: 'catalog:'
         version: 2.4.10(@vue/compiler-dom@3.5.33)(@vue/server-renderer@3.5.33(vue@3.5.33(typescript@5.9.3)))(vue@3.5.33(typescript@5.9.3))
       '@vue/tsconfig':
         specifier: 'catalog:'
         version: 0.5.1
+      effect:
+        specifier: 'catalog:'
+        version: 3.21.2
       eslint:
         specifier: 'catalog:'
         version: 9.39.4(jiti@2.6.1)
@@ -86,6 +92,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 2.1.9(happy-dom@15.11.7)
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.33(typescript@5.9.3)
       vue-tsc:
         specifier: 'catalog:'
         version: 2.2.12(typescript@5.9.3)
@@ -117,6 +126,9 @@ importers:
 
   packages/core:
     devDependencies:
+      '@vitejs/plugin-vue':
+        specifier: 'catalog:'
+        version: 5.2.4(vite@5.4.21)(vue@3.5.33(typescript@5.9.3))
       effect:
         specifier: 'catalog:'
         version: 3.21.2

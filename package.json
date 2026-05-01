@@ -20,8 +20,10 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
     "@vue/test-utils": "catalog:",
     "@vue/tsconfig": "catalog:",
+    "effect": "catalog:",
     "eslint": "catalog:",
     "happy-dom": "catalog:",
     "lint-staged": "catalog:",
@@ -29,6 +31,7 @@
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
+    "vue": "catalog:",
     "vue-tsc": "catalog:"
   },
   "simple-git-hooks": {

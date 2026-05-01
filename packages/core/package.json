@@ -14,16 +14,16 @@
   "keywords": ["effect", "effect-ts", "vue", "vue3", "reactivity", "composables"],
   "exports": {
     ".": {
-      "types": "./dist/index.d.mts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs"
     },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
+  "types": "./dist/index.d.ts",
   "files": ["README.md", "dist", "src"],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && vue-tsc -p tsconfig.build.json",
     "dev": "tsdown --watch",
     "typecheck": "vue-tsc --noEmit && vue-tsc -p tsconfig.test.json --noEmit"
   },
@@ -32,6 +32,7 @@
     "vue": "catalog:"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "catalog:",
     "effect": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",

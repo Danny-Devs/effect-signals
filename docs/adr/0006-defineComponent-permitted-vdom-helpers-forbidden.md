@@ -1,8 +1,9 @@
 # ADR-006: `defineComponent` permitted in core; VDOM constructors forbidden
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-007](./0007-sfc-for-generic-components.md) (same day, 2026-04-30)
 **Date:** 2026-04-30
 **Supersedes:** N/A (clarifies INV-9, does not supersede prior ADR)
+**Superseded by:** ADR-007 — slice 4 dogfooding showed the export-cast pattern fails to propagate generics through Vue's SFC template type-checking. The INV-9 import allowlist/denylist split from this ADR remains valid; the implementation strategy (`.ts` + export-cast) is replaced with `.vue` SFC + `<script setup generic>`.
 
 ## Context
 
