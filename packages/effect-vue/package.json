@@ -1,0 +1,38 @@
+{
+  "name": "effect-vue",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Vue 3 bindings for Effect-TS — meta-package re-exporting @effect-vue/core",
+  "author": "Danny Ahn",
+  "license": "MIT",
+  "homepage": "https://github.com/dannydevs/effect-vue#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dannydevs/effect-vue.git",
+    "directory": "packages/effect-vue"
+  },
+  "keywords": ["effect", "effect-ts", "vue", "vue3", "reactivity", "composables"],
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "files": ["README.md", "src"],
+  "scripts": {
+    "typecheck": "vue-tsc -p tsconfig.test.json --noEmit"
+  },
+  "peerDependencies": {
+    "effect": "catalog:",
+    "vue": "catalog:"
+  },
+  "dependencies": {
+    "@effect-vue/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vue-tsc": "catalog:"
+  }
+}

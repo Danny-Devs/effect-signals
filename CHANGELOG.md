@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented here. Append-only.
 
+## [2026-04-30] — slice 4 continues: README polish + `effect-vue` meta-package
+
+### [docs] README polish — install, quick-start, 6-composable table, examples link
+
+- Install snippet (`pnpm add @effect-vue/core effect vue`) with peer-dep note
+- Quick-start covers 4 composables in one snippet (createAtom value, createAtom Effect, useAsyncAtom) with template-side consumption
+- Table of all 6 composables with one-line purpose each
+- "Examples" section linking to `examples/basic` with `pnpm example:basic` run command
+- "Learn more" section linking to PRINCIPLES, ARCHITECTURE, NON-GOALS, GLOSSARY, specs/, docs/adr/
+- Per NON-GOALS line 19, does NOT teach Effect-TS — links to effect.website
+
+### [feat] `effect-vue` meta-package (claims the bare npm name)
+
+- New `packages/effect-vue/` — thin re-export of `@effect-vue/core` (`export * from "@effect-vue/core"`). Same API, shorter import path: `import { ... } from "effect-vue"`.
+- **Zero-build approach**: hand-authored `src/index.mjs` + `src/index.d.ts`. No tsdown, no SFC compilation needed. The package is essentially a one-line shim with a workspace dep on `@effect-vue/core`.
+- Versions in lockstep with `@effect-vue/core`.
+- Bundle weight at consumer side: ~zero (consumer's bundler dedupes via the workspace dep, ends up with one copy of core).
+- README in the meta-package directs users to either install path; main README's install snippet uses the `@effect-vue/core` form (canonical) but documents both.
+
+### [test] Dogfooded re-export verification with sabotage proof
+
+- `packages/effect-vue/test/reexport.check.ts` — TS-only assertion file importing every public symbol from `effect-vue` (NOT from `@effect-vue/core` directly) and exercising each through `void (() => { ... })` blocks that bind exact types.
+- New `tsconfig.test.json` for the meta-package; new `typecheck` script runs vue-tsc against it.
+- **Sabotage-verified**: replaced `const _v: number = counter.value` with `const _v: string`; vue-tsc failed with `Type 'number' is not assignable to type 'string'`. The check IS being checked.
+- Per the new dogfooding done-criteria from LESSONS.md: every public API surface needs a consumer that exercises it the way users will. The meta-package IS a public surface (the bare `effect-vue` import path), even though it's a thin re-export, so the dogfood is mandatory.
+
 ## [2026-04-30] — slice 4 begins: AtomBoundary refactored to .vue SFC + ADR-007
 
 ### [refactor] @effect-vue/core — `<AtomBoundary>` ships as `.vue` SFC
