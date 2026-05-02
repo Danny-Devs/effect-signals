@@ -2,7 +2,24 @@
 
 All notable changes to this project will be documented here. Append-only.
 
-## [2026-05-01] — slice 4 Tier-1 publish-readiness complete
+## [2026-05-02] — drop bare-name `effect-vue` meta-package
+
+### [refactor] go scope-only — `@effect-vue/*` family, no bare-name package
+
+The bare-name `effect-vue` meta-package shipped on 2026-04-30 to (a) land-grab the obvious npm name and (b) offer a shorter `pnpm add effect-vue` install line. After Danny reserved the `@effect-vue` scope on npm (2026-05-02), the land-grab argument collapses — the scope namespace IS the moat — and the install-line convenience is outweighed by the asymmetry trap with future siblings: a bare-name root next to scoped siblings (`@effect-vue/nuxt`, `@effect-vue/devtools`) creates two install patterns users have to learn ("the root is unscoped, but extensions are scoped — why?"). VueUse (the closest analog: `@vueuse/core` headline + `@vueuse/integrations` siblings) is purely scoped and demonstrably works. We mirror that.
+
+Changes:
+
+- **Removed `packages/effect-vue/`** (the bare-name meta) — directory deleted, src/index.mjs + src/index.d.ts + test/reexport.check.ts + tsconfig.test.json + package.json + README.md gone. Nothing was published to npm under that name; no consumer impact.
+- **`scripts/verify-published-tarball.mjs`** — default `packagesToCheck` list now contains only `packages/core`. Calling with explicit args still works (preserves the witness's flexibility).
+- **`ROADMAP.md`** — slice 4 marker for the meta-package flipped from ✅ to ⏭️ DROPPED with the rationale captured inline.
+- **`HANDOFF.md`** — regenerated with simplified single-package publish flow (one `pnpm publish` instead of the publish-core-then-meta sequence).
+- **`README.md`** — already documented `@effect-vue/core` as the canonical install path; no edit needed.
+- **`CHANGELOG.md` / `LESSONS.md`** — append-only, history preserved. The 2026-04-30 entry that introduced the meta-package, the 2026-04-30 entry about its dogfood, and the 2026-05-01 LESSONS entry about CI/dist-ordering ALL stay verbatim — they're accurate history. This entry supersedes them.
+
+The naming-strategy reasoning is captured in this CHANGELOG entry rather than a new ADR because the question is fully resolved by the existing ADR-001 (monorepo from day one) plus the implicit "scope-only" choice now formalized. If a future contributor reopens the question, they'll find it here under the date it was decided.
+
+
 
 ### [chore] vue-tsc catalog bump 2.x → 3.2.7
 

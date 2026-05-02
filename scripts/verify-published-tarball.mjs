@@ -31,7 +31,6 @@ const packagesToCheck = argPkgs.length > 0
   ? argPkgs.map(p => resolve(REPO_ROOT, p))
   : [
       resolve(REPO_ROOT, "packages/core"),
-      resolve(REPO_ROOT, "packages/effect-vue"),
     ]
 
 let violations = 0

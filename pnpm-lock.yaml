@@ -150,22 +150,6 @@ importers:
 
   packages/devtools: {}
 
-  packages/effect-vue:
-    dependencies:
-      '@effect-vue/core':
-        specifier: workspace:^
-        version: link:../core
-      effect:
-        specifier: 'catalog:'
-        version: 3.21.2
-      vue:
-        specifier: 'catalog:'
-        version: 3.5.33(typescript@5.9.3)
-    devDependencies:
-      vue-tsc:
-        specifier: 'catalog:'
-        version: 3.2.7(typescript@5.9.3)
-
   packages/nuxt: {}
 
 packages:

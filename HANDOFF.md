@@ -42,7 +42,7 @@ Re-derive with `git log --oneline -20`. CI is GREEN as of `32bfe5e`. GitHub remo
   - ✅ `examples/basic` — Vue 3 + Vite app demonstrating ALL 6 composables
   - ✅ AtomBoundary refactored to `.vue` SFC (ADR-007 supersedes ADR-006)
   - ✅ README.md polish (install, quick-start, 6-composable table, examples link, learn-more)
-  - ✅ `effect-vue` meta-package (bare-name re-export with sabotage-verified type-level check)
+  - ⏭️ `effect-vue` meta-package — DROPPED 2026-05-02 in favor of scope-only `@effect-vue/*` family (consistent with VueUse pattern; avoids future asymmetry when `@effect-vue/nuxt` and `@effect-vue/devtools` ship)
   - ✅ vue-tsc peer-dep mismatch resolved (catalog bumped to ^3.2.0; ADR-007 sabotage re-verified against vue-tsc 3.x)
   - ✅ Fresh-install dogfood (`pnpm pack` → /tmp dir → import + typecheck) for BOTH packages, with sabotage proofs
   - ✅ INV-10 mechanical witness — `scripts/verify-published-tarball.mjs`, wired to `prepublishOnly` and CI
@@ -65,36 +65,30 @@ pnpm --filter '@effect-vue/core' build                   # expect: 4.61 kB raw /
 pnpm verify:tarballs                                     # expect: [INV-10] all packages verified
 pnpm --filter '@effect-vue/example-basic' exec vue-tsc --noEmit   # expect: clean (dogfood gate)
 cd packages/core && pnpm dlx publint                     # expect: All good!
-cd packages/effect-vue && pnpm dlx publint               # expect: All good!
 ```
 
 ## Next concrete action when this resumes
 
 Local repo + GitHub remote are publish-ready. CI is green. ONE human-gated step remains:
 
-### npm publish — HUMAN-GATED, in this exact order
+### npm publish — HUMAN-GATED
 
 ```bash
 # Verify all gates one final time
 pnpm verify:tarballs && pnpm test && pnpm lint && pnpm typecheck
 
-# Publish core FIRST (the meta-package depends on it being on the registry)
+# Publish @effect-vue/core (the only headline package)
 cd packages/core
 pnpm publish --access public        # prepublishOnly runs INV-10 witness automatically
 
 # Wait for npm to index it (usually <1 min)
 pnpm view @effect-vue/core version  # expect: 0.1.0
 
-# Then publish meta-package
-cd ../effect-vue
-pnpm publish --access public        # prepublishOnly runs INV-10 witness automatically
-pnpm view effect-vue version        # expect: 0.1.0
-
-# Verify both work in a fresh consumer
+# Verify it works in a fresh consumer
 mkdir /tmp/effect-vue-postpublish && cd /tmp/effect-vue-postpublish
 pnpm init
-pnpm add effect-vue vue effect
-node -e "import('effect-vue').then(m => console.log(Object.keys(m)))"
+pnpm add @effect-vue/core vue effect
+node -e "import('@effect-vue/core').then(m => console.log(Object.keys(m)))"
 ```
 
 **Do not run `pnpm publish` without Danny's explicit go-ahead.** This is the single hard gate left.

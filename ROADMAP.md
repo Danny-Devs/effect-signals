@@ -38,7 +38,7 @@ Slice 3 essentially done (3 composables shipped, DevTools breadcrumbs deferred).
 - ✅ `examples/basic` — full demo of all six composables
 - ⏭️ `examples/nuxt-ssr` — DEFERRED to Phase 2 (alongside `@effect-vue/nuxt` package itself, per 2026-04-30 decision in HANDOFF.md). Slice 4 ships without it; Phase 2 owns the SSR story end-to-end.
 - ✅ README polish + diagrams
-- ✅ **Added `packages/effect-vue/`** as a meta-package that re-exports `@effect-vue/core`. Claims the bare `effect-vue` npm name (verified available 2026-04-30) and lets users `pnpm add effect-vue` for the simplest install.
+- ⏭️ **Bare-name `effect-vue` meta-package — DROPPED 2026-05-02.** Originally added (2026-04-30) to land-grab the bare npm name and offer a shorter install line. After the `@effect-vue/*` scope was reserved, the bare-name asymmetry-with-future-siblings argument outweighed the install-line convenience. Going scope-only (`@effect-vue/core` headline + `@effect-vue/nuxt` + `@effect-vue/devtools` + ...) is consistent with the VueUse pattern. See CHANGELOG 2026-05-02.
 - 🚧 Tier-1 publish-readiness in progress: vue-tsc peer-dep (bumping catalog to `^3.2.0`), fresh-install dogfood, INV-10 mechanical witness.
 - 📋 Publish `effect-vue` AND `@effect-vue/core` to npm. Versions move together at minor/major; patch updates can release independently (meta-package depends on `workspace:^` → caret-pinned at publish time).
 - 📋 Blog post + YouTube video: "effect-vue is smaller and clearer than effect-react"
