@@ -148,10 +148,6 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(typescript@5.9.3)
 
-  packages/devtools: {}
-
-  packages/nuxt: {}
-
 packages:
 
   '@antfu/eslint-config@3.16.0':
