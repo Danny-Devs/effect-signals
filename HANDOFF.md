@@ -2,150 +2,139 @@
 
 > **Regeneratable, mutable, present-tense.** Updated (overwritten) at session end. A fresh AI agent or future-Danny reads this AND follows the canonical reading order in [`AGENTS.md` §Reading Order](./AGENTS.md). **This file does not duplicate that list** — single source of truth.
 >
-> **Last updated:** 2026-05-01 (post-Tier-1, post-GitHub-remote, post-CI-green)
-> **Last updater:** Claude Opus 4.7 (1M context). This session took slice 4 from ~50% to **fully green on CI, awaiting only `npm publish`**: vue-tsc 2.x→3.x catalog bump (sabotage-verified through ADR-007's SFC slot machinery), INV-10 mechanical witness shipped (script + sabotage proof + prepublish wiring), fresh-install dogfood for both packages (caught one real surprise about `AsyncAtomState` shape), repo URL correction (`dannydevs` → `Danny-Devs`), `workspace:*` → `workspace:^` for caret semantics, CI workflow extended, GitHub remote created (`Danny-Devs/effect-vue`, public, with topics), TWO real CI-only failures caught and fixed (`@types/node` was hoisted not declared; build must precede typecheck), encoded as a new LESSONS.md entry.
-> **Latest milestone archive:** [`handoffs/2026-04-30-slice-3-complete.md`](./handoffs/2026-04-30-slice-3-complete.md). Note: AtomBoundary's slice-3 implementation strategy was superseded by ADR-007 in slice 4; the archive remains accurate as historical record.
+> **Last updated:** 2026-05-02 (post-pivot — the "effect-vue → effect-signals" strategic pivot is locked)
+> **Last updater:** Claude Opus 4.7 (1M context). This session went deep on architecture: discovered `@effect-atom/atom-vue` already exists (Tim Smart, dormant); discovered chain-reaction's own 220-LOC signal.ts; verified preact-signals' subscribe API as a strict superset of nanostores'; investigated Hayes's dapp-kit-next stack (Lit + nanostores); reviewed TanStack DB's IVM (not signals — different abstraction); locked the strategic direction.
 
 ---
 
 ## STEP 0 — Verify this handoff is current (run BEFORE trusting anything below)
 
 ```bash
-git log --oneline -1   # expect: most recent commit on this branch (a descendant of 3182825)
-git status --short      # expect: empty (no working-tree changes)
+git log --oneline -1   # expect: pivot commit (or descendant)
+git status --short      # expect: empty
+git remote -v           # expect: git@github.com:Danny-Devs/effect-signals.git
+git tag -l "archive/*"  # expect: archive/effect-vue-pre-pivot-20260502
 ```
 
-If `git log --oneline -1` does NOT include the SHA below, **assume this handoff is stale** and verify everything below independently.
+If any of these don't match, **assume this handoff is stale** and verify everything below independently.
 
 ---
 
-## Current commit on `main`
+## What just happened (the pivot, in 60 seconds)
 
-`32bfe5e` (or descendant) — *fix(ci): build before typecheck*. The publish-readiness chain is:
+This repo started as `effect-vue` — Vue 3 bindings for Effect-TS, atoms-are-Vue-refs, ~1.26 KB gzip. We took it through slices 1-4, shipped a publish-ready `@effect-vue/core@0.1.0` with green CI, INV-10 mechanical witness, fresh-install dogfood, sabotage-verified type fidelity.
 
-```
-3182825 docs(s4): regenerate HANDOFF.md for night-end (slice 4 ~50%, Tier-1 publish-readiness next)
-15b47e7 chore(s4): Tier-1 publish-readiness — vue-tsc 3 + INV-10 witness + dogfood
-b055659 fix(ci): remove duplicate pnpm version pin
-dd9c78b fix(deps): add @types/node as explicit devDep
-32bfe5e fix(ci): build before typecheck
-```
+Then we went deep on architectural review and concluded the Vue-only positioning was too narrow. **Pivot:** the project becomes `@effect-signals/*` — Effect-TS atoms over a `@preact/signals-core` substrate, with framework bindings for Vue / Solid / Svelte / Lit (NOT React — Tim Smart's `@effect-atom/atom-react` serves that). The existing Vue work becomes scaffolding for `@effect-signals/vue`.
 
-Re-derive with `git log --oneline -20`. CI is GREEN as of `32bfe5e`. GitHub remote: `https://github.com/Danny-Devs/effect-vue` (public).
+The pre-pivot state is preserved at git tag `archive/effect-vue-pre-pivot-20260502` (historical reference; if the pivot fails for any reason, that's the recovery point).
 
-## Slice status
+---
 
-- **Slice 1 (atoms + runtime):** ✅ SHIPPED
-- **Slice 2 (async ergonomics + R-preservation):** ✅ SHIPPED
-- **Slice 3 (families + boundaries + matching):** ✅ SHIPPED + REFACTORED in slice 4 (AtomBoundary → SFC per ADR-007)
-- **Slice 4 (examples + docs + publish):** 🟢 **PUBLISH-READY**
-  - ✅ `examples/basic` — Vue 3 + Vite app demonstrating ALL 6 composables
-  - ✅ AtomBoundary refactored to `.vue` SFC (ADR-007 supersedes ADR-006)
-  - ✅ README.md polish (install, quick-start, 6-composable table, examples link, learn-more)
-  - ⏭️ `effect-vue` meta-package — DROPPED 2026-05-02 in favor of scope-only `@effect-vue/*` family (consistent with VueUse pattern; avoids future asymmetry when `@effect-vue/nuxt` and `@effect-vue/devtools` ship)
-  - ✅ vue-tsc peer-dep mismatch resolved (catalog bumped to ^3.2.0; ADR-007 sabotage re-verified against vue-tsc 3.x)
-  - ✅ Fresh-install dogfood (`pnpm pack` → /tmp dir → import + typecheck) for BOTH packages, with sabotage proofs
-  - ✅ INV-10 mechanical witness — `scripts/verify-published-tarball.mjs`, wired to `prepublishOnly` and CI
-  - ✅ publint clean on both packages
-  - ✅ Repo URL corrected (`dannydevs` → `Danny-Devs`)
-  - ✅ Meta dep semantics: `workspace:^` (caret — patch updates flow automatically)
-  - ✅ CI workflow extended with INV-10 step + examples/basic dogfood gate
-  - ✅ GitHub remote created — `Danny-Devs/effect-vue` (public), main pushed, topics set, description set, homepage set
-  - ✅ CI green on the publish-readiness chain (run `25206075937` → all 8 steps ✓ on commit `32bfe5e`)
-  - 📋 npm publish — **HUMAN-GATED.** Stop. Danny approves.
-  - 📋 `examples/nuxt-ssr` — DEFERRED to Phase 2 / Nuxt package (per Danny 2026-04-30; not blocking publish)
+## Current state of the repo
 
-## Live metrics (verify — do not trust this snapshot blindly)
+- **Git:** main is at the pivot commit (run `git log --oneline -3` to see it)
+- **GitHub:** repo renamed to `Danny-Devs/effect-signals` (auto-redirects from old name)
+- **Placeholder packages deleted:** no more `packages/devtools/` or `packages/nuxt/`
+- **`packages/core/` still contains the OLD Vue-native code.** Its `package.json` still says `@effect-vue/core`. Refactoring this into `@effect-signals/core` + `@effect-signals/vue` shape is the next session's primary work.
+- **CI is green** on the pivot commit (verify: `gh run list --repo Danny-Devs/effect-signals --limit 1`)
 
-```bash
-pnpm test                                                # expect: 34/34 passing across 6 test files
-pnpm typecheck                                           # expect: clean (core's 2 configs + meta's check)
-pnpm lint                                                # expect: clean
-pnpm --filter '@effect-vue/core' build                   # expect: 4.61 kB raw / 1.26 kB gzip
-pnpm verify:tarballs                                     # expect: [INV-10] all packages verified
-pnpm --filter '@effect-vue/example-basic' exec vue-tsc --noEmit   # expect: clean (dogfood gate)
-cd packages/core && pnpm dlx publint                     # expect: All good!
-```
+---
+
+## Locked strategic decisions (do not relitigate)
+
+1. **Pivot to `@effect-signals/*` is final.** No more debate. The reasoning is preserved in CHANGELOG's 2026-05-02 entry under "Why we're pivoting." Read it before re-opening the question.
+2. **Substrate is `@preact/signals-core`.** Strict superset of nanostores' reactivity model. 12.7M dl/mo, mature, Lit Labs endorses it. NOT TC39 polyfill (proposal dormant). NOT extracted-from-chain-reaction-signals (deferred to Phase 3, earned later).
+3. **NO React binding.** Tim Smart's `@effect-atom/atom-react` serves that audience. We're explicitly post-React.
+4. **chain-reaction stays separate, on its own signal.ts.** No premature consolidation. If/when both libraries have traction and consolidation earns its keep, revisit. Today: leave it alone.
+5. **DAN-422 (dapp-kit-vue contribution) stays parallel.** Built on Hayes Miston's existing nanostores substrate. No substrate critique; just ship the Vue wrapper. Separate engagement, separate repo.
+
+---
 
 ## Next concrete action when this resumes
 
-Local repo + GitHub remote are publish-ready. CI is green. ONE human-gated step remains:
+The structural refactor is multi-week work. Sequence:
 
-### npm publish — HUMAN-GATED
+### Phase 1 (likely 1-2 sessions): scaffold the new monorepo
 
-```bash
-# Verify all gates one final time
-pnpm verify:tarballs && pnpm test && pnpm lint && pnpm typecheck
+1. **Reserve `@effect-signals` npm scope.** Danny needs to do this manually on npmjs.com — agents can't create scopes. (Goes in READY-QUEUE.)
+2. **Restructure `packages/core/` → `packages/{core,vue}/`:**
+   - Move existing `createAtom`, `useAsyncAtom`, `familyAtom`, `useMatch`, `provideAtomRuntime`, `injectAtomRuntime`, `<AtomBoundary>` SFC code → `packages/vue/src/`
+   - Create new `packages/core/src/` with the Effect-aware atom abstractions over preact-signals
+   - Update `packages/core/package.json` → `@effect-signals/core`
+   - Create `packages/vue/package.json` → `@effect-signals/vue` (depends on `@effect-signals/core`)
+3. **Add `@preact/signals-core` to catalog** in `pnpm-workspace.yaml`
+4. **Refactor `packages/core/src/atom.ts`** to wrap preact-signals' `signal()` instead of Vue's `ref()`. The public type signature stays the same (`Ref<A | undefined>` from the Vue binding's perspective) — but the underlying primitive changes.
+5. **Refactor `packages/vue/src/`** to be the Vue-binding layer: import preact-signals atoms from core, wrap each in Vue's `customRef` so consumers get back a Vue ref, set up the bidirectional sync via preact-signals `effect()`.
+6. **Update tests** to verify both layers (core: preact-signals semantics; vue: Vue ref semantics).
+7. **Update INV-9** (no VDOM imports) — still applies to core but interpretation changes since core has no Vue dep.
+8. **Update INV-10 witness** to verify both packages' tarballs.
+9. **Update CI workflow** to handle the new monorepo shape.
 
-# Publish @effect-vue/core (the only headline package)
-cd packages/core
-pnpm publish --access public        # prepublishOnly runs INV-10 witness automatically
+### Phase 2 (later): the publish ladder
 
-# Wait for npm to index it (usually <1 min)
-pnpm view @effect-vue/core version  # expect: 0.1.0
+10. Sabotage-verify the new architecture (the canonical "data.nonExistentField" sabotage in examples/basic should still trigger under the new shape).
+11. Fresh-install dogfood for `@effect-signals/core` + `@effect-signals/vue` (both packages, both should typecheck cleanly from packed tarballs).
+12. publint on both packages.
+13. Update README + ADRs:
+    - New ADR documenting the substrate choice (`@preact/signals-core`)
+    - New ADR documenting the framework-binding pattern
+    - Update existing ADR-002 ("Atom IS a Vue Ref") to a SUPERSEDED note pointing at the new ADR (atoms are now preact-signals; the Vue binding wraps them as refs)
+    - ADR-007 (SFC slot generic propagation) survives unchanged — that decision still applies inside `@effect-signals/vue`
+14. Final CI green.
+15. **HUMAN-GATED:** Danny publishes `@effect-signals/core@0.1.0` then `@effect-signals/vue@0.1.0` to npm.
 
-# Verify it works in a fresh consumer
-mkdir /tmp/effect-vue-postpublish && cd /tmp/effect-vue-postpublish
-pnpm init
-pnpm add @effect-vue/core vue effect
-node -e "import('@effect-vue/core').then(m => console.log(Object.keys(m)))"
-```
+### Phase 3 (community-driven): more framework bindings
 
-**Do not run `pnpm publish` without Danny's explicit go-ahead.** This is the single hard gate left.
+16. Document "How to write an `@effect-signals/<framework>` binding" — pattern doc using `@effect-signals/vue` as the reference.
+17. Wait for community contributions of `@effect-signals/{solid,svelte,lit}` OR write them ourselves if demand surfaces.
 
-### Post-publish housekeeping
+---
 
-- Tag the release: `git tag v0.1.0 && git push --tags` (only after both publishes succeed).
-- Update GitHub repo's "About" with the actual npm URLs once published.
-- Update `actions/checkout@v4`, `actions/setup-node@v4`, `pnpm/action-setup@v4` to Node 24-compatible versions before June 2, 2026 (CI annotation; not blocking).
-- Phase 2 begins: `examples/nuxt-ssr` + `@effect-vue/nuxt` package.
+## What lives in archive (do NOT delete)
 
-## Cross-cutting open questions (still alive)
+- **Tag `archive/effect-vue-pre-pivot-20260502`** — full snapshot of the publish-ready `@effect-vue/core@0.1.0` state before the pivot. Recovery point if anything goes wrong.
+- **`handoffs/2026-04-30-slice-3-complete.md`** — milestone archive from slice 3 completion.
+- **CHANGELOG entries from before 2026-05-02** — append-only history of the Vue-native architecture's evolution. Don't edit; they're the record of how we got here.
+- **LESSONS entries from before 2026-05-02** — same. Especially the "clean-checkout dogfood requirement" lesson, which still applies to the new architecture.
 
-1. **`[NOT BLOCKING]` `provideAtomRuntime` auto-dispose** — orthogonal to composable correctness per slice-3 self-review. Resolve when long-running SPAs surface the cost.
-2. **`[DEFER, v0.2 surgery]` `useAsyncAtom` discriminated-union state shape** — would resolve sentinel-undefined collision (LESSONS.md). The AtomBoundary regression test pins current behavior; flip together with the redesign.
-3. **`[NOT BLOCKING]` ESLint rule for INV-9 import allowlist** — currently doc-only; ~30 LOC custom rule.
-4. **`[BOOKMARKED PHASE 2]` Nuxt SSR example + `@effect-vue/nuxt` package** — explicit decision 2026-04-30 to defer to Phase 2 alongside the Nuxt package itself. NOT a slice 4 blocker.
-5. **`[DOGFOOD-ONLY GAP]` Pre-publish meta-package consumer testing requires `pnpm.overrides`.** After core is on the registry this stops being relevant. Document this in a future contributing guide if external contributors will dogfood pre-publish; currently effect-vue is solo.
+---
 
-## Linear references
+## What I owe Danny via READY-QUEUE before next session
 
-- **DAN-421** (Urgent) — `effect-vue` v0.1.0 program-level tracking. Slice 4 publish-ready as of 2026-05-01; awaiting human-gated `npm publish`.
-- **DAN-422** (High) — dapp-kit-vue POC, dogfoods effect-vue. Begins after `effect-vue` v0.1.0 ships to npm.
-- **DAN-423** (High) — Pinia Colada three-package split. Independent track.
+(Add these to `READY-QUEUE.md` in the parent repo — these are blockers Danny must do manually.)
 
-## Bundle / quality budgets remaining (per INV-11, INV-13)
+1. **Reserve `@effect-signals` npm scope** (manual step on npmjs.com — agents can't create scopes; Danny did this for `@effect-vue` previously, same procedure)
+2. **Decide if existing `Danny-Devs/effect-signals` repo URL should be socialized publicly yet.** It's renamed but no announcement; we should probably wait until the first `@effect-signals/core@0.1.0` ships before any social posts.
+3. **(Optional) Confirm Hayes-related strategy:** DAN-422 (dapp-kit-vue contribution) timing — is it before or after `@effect-signals/core@0.1.0` ships? They're independent but Danny may want to sequence them for relationship-building reasons.
 
-- Core bundle: **1.26 KB gzip currently**. Ceiling 5 KB. **~3.74 KB headroom.**
-- TypeScript strictness: NEVER relaxed (INV-13).
-
-## Strategic context
-
-> Permanently filed in [`ROADMAP.md` §Strategic Context](./ROADMAP.md). HANDOFF retains a pointer; the substance lives in the durable doc.
+---
 
 ## Things the next agent should NOT do
 
-- Do not skip the pre-commit hook (`--no-verify` is forbidden per AGENTS.md).
-- Do not write code before writing the corresponding `.allium` spec (INV-6).
-- Do not cast at the boundary to silence the type system.
-- Do not import VDOM constructors (`h`, `createVNode`, etc.) into core (INV-9 + ADR-006/ADR-007). `defineComponent` IS permitted; `.vue` SFC `<template>` blocks ARE the legitimate VNode-producing surface.
-- **Do not run `npm publish` without explicit Danny approval.** HUMAN-GATED per CLAUDE.md.
-- Do not commit without running `pnpm test && pnpm typecheck && pnpm lint && pnpm --filter '@effect-vue/core' build && pnpm verify:tarballs` and confirming all green.
-- Do not duplicate the AGENTS.md reading order anywhere else.
-- Do not introduce a public API in any slice without ALSO adding a consumer that exercises it the way users will (dogfooding done-criteria).
-- Do not assume internal tests prove user-facing contracts hold.
-- Do not bundle multiple concerns into a single composable for ergonomics — minimal primitives compose better.
-- Do not forget to publish `@effect-vue/core` BEFORE `effect-vue` (the meta-package depends on it being on the registry).
-- Do not run `prepublishOnly` manually — it runs automatically inside `pnpm publish`. Manual invocation outside that flow could mask actual publish-time failures.
+- **Don't refactor chain-reaction's signal.ts.** It works; consolidation is deferred. If you're tempted, re-read CHANGELOG 2026-05-02's "What's NOT changing" section.
+- **Don't propose substrate alternatives.** preact-signals is locked. TC39 polyfill, nanostores, custom signals, @vue/reactivity standalone — all considered, all rejected, with reasoning preserved in CHANGELOG.
+- **Don't delete the archive tag.** It's the recovery point.
+- **Don't publish anything to npm without explicit Danny approval.** This includes any new `@effect-signals/*` package. Same rule as before.
+- **Don't push to GitHub remote without explicit Danny approval** — though pushing to `Danny-Devs/effect-signals` (the renamed repo) is fine for normal commits via `git push`; just don't release tags or publish without the human gate.
+- **Don't write code before writing the corresponding `.allium` spec** (INV-6 still applies in the new architecture).
+- **Don't add a React binding.** Explicit non-goal. Tim's atom-react is the answer for React users.
 
-## Session-end note (2026-05-01)
+---
 
-Slice 4 is publish-ready, **CI is green**, GitHub remote is live, and the only remaining gate is `npm publish` (human-gated). Five findings worth filing:
+## Strategic context (durable insights from this pivot session)
 
-1. **vue-tsc 2.x → 3.x was risk-free thanks to ADR-007's discipline.** AtomBoundary's `<script setup generic>` syntax is exactly what volar 2's rewrite was engineered to preserve. The sabotage assertion produced an identical error message under both vue-tsc versions. The lesson: aligning your authoring surface with the framework's blessed patterns is what makes ecosystem upgrades cheap.
-2. **Fresh-install dogfood caught a real consumer-shape surprise.** `AsyncAtomState<A, E>` is the `{ data, error, pending }` ref triple itself, not a wrapper. Internal tests passed because they only used `useAsyncAtom`'s return type indirectly via `ReturnType<typeof ...>`; the dogfood forced a direct construction and surfaced the actual shape.
-3. **Pre-publish dogfood for the meta-package requires `pnpm.overrides`.** When `@effect-vue/core` isn't on npm yet, `pnpm add effect-vue.tgz` fails with 404. `pnpm.overrides` redirects to the local tarball. After publish this stops being relevant.
-4. **CI caught two failures invisible to local internal verification.** All local gates were green (test, typecheck, lint, INV-10 witness, publint, two fresh-install dogfoods); CI failed twice — first on `@types/node` not being a declared dep (was hoisted from a transitive locally), then on `dist/` not existing on a clean checkout (typecheck ran before build). Both fixed; both encoded in LESSONS.md as the **clean-checkout dogfood requirement**: internal verification + tarball dogfood + clean CI run is the minimum bar.
-5. **`pnpm/action-setup@v4` rejects duplicate version specifications.** If `version:` is set in the workflow AND `packageManager:` is set in package.json, the action fails. Prefer the package.json source of truth and omit `version:` from the workflow.
+> Permanently filed in [`ROADMAP.md` §Strategic Context](./ROADMAP.md). HANDOFF retains a pointer; the substance lives in the durable doc once we update ROADMAP for the new architecture.
 
-Single hard gate remaining: **`npm publish`.** Everything else is done.
+Three durable insights from the May 2 pivot session:
+
+1. **"Most agnostic" splinters into three axes** (framework-neutral, standards-aligned, mind-share-neutral) — no single substrate dominates all three. preact-signals optimizes adoption + brand recognition while staying framework-neutral; that's the right point on the trade-off.
+2. **TanStack DB validates "build your own when the abstraction is wrong"** (they built IVM/differential-dataflow because signals weren't the right primitive for query views) — but it argues AGAINST building your own when the abstraction is correct, only the implementation differs. We're using preact-signals because signals ARE the right abstraction; TanStack built IVM because signals weren't.
+3. **Substrate ownership is earned, not predicted.** Premature extraction of a shared signals package would create maintenance burden + bus-factor concerns before there's demonstrated demand. The right time to extract is when multiple downstream libraries surface a real need; not before.
+
+---
+
+## Session-end note (2026-05-02)
+
+The architectural pivot is locked in. The codebase still has its old `@effect-vue/core` shape — that's by design (this commit is strategic direction, not code restructure). The next session's job is to actually do the structural refactor: move existing Vue-native code into a new `packages/vue/` directory, create a new `packages/core/` with preact-signals-substrate atoms, and wire the bidirectional sync.
+
+If you're picking this up and feel like the pivot is wrong, **read the CHANGELOG's 2026-05-02 entry first** — the reasoning is captured there. If it's still wrong after reading, raise it with Danny before reopening the substrate or framework-target questions.

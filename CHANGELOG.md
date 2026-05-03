@@ -2,7 +2,47 @@
 
 All notable changes to this project will be documented here. Append-only.
 
-## [2026-05-02] — drop bare-name `effect-vue` meta-package
+## [2026-05-02] — strategic pivot: `effect-vue` → `@effect-signals/*`
+
+### Why we're pivoting
+
+After a deep architectural review session (transcript preserved in this CHANGELOG and the handoff history), we identified three findings that collectively reframe the project's strategic direction:
+
+1. **`@effect-atom/atom-vue` already exists, dormant.** Tim Smart (Effect-TS core maintainer #2 by commits) shipped a thin Vue port of his atom-react work, but it gets ~180 dl/mo and is described as "WIP" in its own README. We're not "first to a gap" — we're a Vue-idiomatic alternative to a competing-but-stagnant work.
+2. **The Vue-only positioning is too narrow given Danny's strategic ambitions.** Vue-native (atoms-are-Vue-refs) is genuinely elegant for Vue developers, but the audience for "Effect-TS bridge in the signals-frameworks world" is dramatically larger if we don't lock to a single framework.
+3. **`@preact/signals-core` is the right substrate.** It's a strict superset of nanostores' reactivity model (auto-tracked, fine-grained), it's mature (12.7M dl/mo, 4 years of battle-testing), the Lit team officially endorses it via `@lit-labs/preact-signals`, and its API shape is closest to TC39's eventual signal proposal — meaning future-aligned even if the proposal does eventually advance.
+
+These three findings argue for a single, sharper bet: **`@effect-signals/*` — the Effect-TS bridge for signals-based frameworks (Vue, Solid, Svelte, Lit), explicitly NOT React.** Tim's `@effect-atom/atom-react` serves the React audience with full Effect-TS maintainer credibility. We serve the post-React, signals-first audience with a complementary framing.
+
+### What's changing
+
+- **Repo renamed:** `Danny-Devs/effect-vue` → `Danny-Devs/effect-signals` (GitHub auto-redirects old links)
+- **`@effect-vue/core@0.1.0` will NOT publish to npm.** The publish-ready state is preserved at git tag `archive/effect-vue-pre-pivot-20260502` for historical reference. The codebase becomes the scaffolding for `@effect-signals/vue` going forward.
+- **Placeholder packages removed:** `packages/devtools/` and `packages/nuxt/` deleted. They didn't fit the old architecture and don't fit the new one. When `@effect-signals/devtools` or `@effect-signals/nuxt` come into scope, they'll be created fresh.
+- **`@effect-signals/*` npm scope reserved status:** `@effect-vue` was reserved earlier; the new `@effect-signals` scope needs to be created on npm by Danny before the first publish. None of the package names (`@effect-signals/{core,vue,solid,svelte,lit}`) are taken on the registry.
+
+### What's NOT changing
+
+- **`@chain-reaction/*` is unaffected.** Its existing 220-LOC zero-dep `signal.ts` works; we explicitly decided NOT to refactor it to preact-signals at this time. Consolidation is deferred to v0.2 or later, earned by demonstrated need rather than predicted symmetry.
+- **DAN-422 (dapp-kit-vue contribution to Mysten) stays on Hayes's existing nanostores substrate.** That work is parallel and independent — relationship-building first, substrate critique never.
+- **All git history is preserved.** No force-pushes, no branch resets, no destructive ops. The pre-pivot state is reachable via `git checkout archive/effect-vue-pre-pivot-20260502`.
+
+### What this commit specifically does
+
+- Tags the pre-pivot state as `archive/effect-vue-pre-pivot-20260502`
+- Renames the GitHub repository
+- Updates local origin remote
+- Deletes the empty placeholder packages
+- Updates HANDOFF.md to reflect the new architectural direction
+- Appends this CHANGELOG entry as the canonical pivot decision record
+
+The actual code refactor (`packages/core/` → `@effect-signals/core` + `@effect-signals/vue` shape) is multi-week work scheduled for upcoming sessions. This commit is the strategic-direction lock-in, not the code restructure.
+
+### Reading order for the next agent
+
+The architectural reasoning behind this pivot lives in the conversation transcript that produced the decision (May 2, 2026, multi-hour deep dive across substrate options, market positioning, signals semantics, Tanner Linsley/TanStack precedent, Hayes Miston's dapp-kit-next architecture, and the @effect-atom/atom-vue discovery). The compressed version is in this entry's "Why we're pivoting" section above. If a future agent wants more depth, the relevant memory files in `/Users/dannydevs/.claude/projects/-Users-dannydevs-repos-danny/memory/` (after this session updates them) and the HANDOFF.md should preserve it.
+
+
 
 ### [refactor] go scope-only — `@effect-vue/*` family, no bare-name package
 
