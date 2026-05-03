@@ -99,13 +99,44 @@ The structural refactor is multi-week work. Sequence:
 
 ---
 
-## What I owe Danny via READY-QUEUE before next session
+## Status of human gates (updated 2026-05-03)
 
-(Add these to `READY-QUEUE.md` in the parent repo — these are blockers Danny must do manually.)
+1. ✅ **`@effect-signals` npm scope reserved** by Danny on May 2 2026.
+2. 📋 **GitHub repo announcement** — repo renamed but no public announcement. Wait until `@effect-signals/core@0.1.0` ships to npm before any social posts.
+3. 📋 **DAN-422 sequencing** (dapp-kit-vue contribution to Mysten) — open question: ship before or after `@effect-signals/core@0.1.0`? Independent decision; relationship-building / mindshare timing.
 
-1. **Reserve `@effect-signals` npm scope** (manual step on npmjs.com — agents can't create scopes; Danny did this for `@effect-vue` previously, same procedure)
-2. **Decide if existing `Danny-Devs/effect-signals` repo URL should be socialized publicly yet.** It's renamed but no announcement; we should probably wait until the first `@effect-signals/core@0.1.0` ships before any social posts.
-3. **(Optional) Confirm Hayes-related strategy:** DAN-422 (dapp-kit-vue contribution) timing — is it before or after `@effect-signals/core@0.1.0` ships? They're independent but Danny may want to sequence them for relationship-building reasons.
+## Linear project — the multi-week refactor as discrete tasks
+
+**Project:** [effect-signals](https://linear.app/dannydevs/project/effect-signals-395af5557c02)
+
+**Phase 1 (scaffold, 7 issues):**
+- [DAN-446](https://linear.app/dannydevs/issue/DAN-446) — P1.1 Add @preact/signals-core + restructure to packages/{core,vue}
+- [DAN-447](https://linear.app/dannydevs/issue/DAN-447) — P1.2 Refactor @effect-signals/core: atom abstractions over preact-signals
+- [DAN-448](https://linear.app/dannydevs/issue/DAN-448) — P1.3 Build @effect-signals/vue binding (customRef bridge)
+- [DAN-449](https://linear.app/dannydevs/issue/DAN-449) — P1.4 Migrate composables: familyAtom, useAsyncAtom, useMatch, AtomBoundary
+- [DAN-450](https://linear.app/dannydevs/issue/DAN-450) — P1.5 Update INV-9, INV-10 mechanical witness, CI workflow for two-package shape
+- [DAN-451](https://linear.app/dannydevs/issue/DAN-451) — P1.6 Update tests + verify all gates green for two-package shape
+- [DAN-452](https://linear.app/dannydevs/issue/DAN-452) — P1.7 Update specs + ADRs (ADR-002 superseded; ADR-008 preact-signals; ADR-009 framework-agnostic core)
+
+**Phase 2 (publish ladder, 4 issues):**
+- [DAN-453](https://linear.app/dannydevs/issue/DAN-453) — P2.1 Final verification: sabotage + fresh-install dogfood + publint
+- [DAN-454](https://linear.app/dannydevs/issue/DAN-454) — P2.2 Update README + Prior Art section
+- [DAN-455](https://linear.app/dannydevs/issue/DAN-455) — P2.3 HUMAN-GATED publish (core, then vue)
+- [DAN-456](https://linear.app/dannydevs/issue/DAN-456) — P2.4 Tag v0.1.0 + announcement plan
+
+**Phase 3 (community bindings, 3 issues):**
+- [DAN-457](https://linear.app/dannydevs/issue/DAN-457) — P3.1 "How to add @effect-signals/<framework>" pattern doc
+- [DAN-458](https://linear.app/dannydevs/issue/DAN-458) — P3.2 Track community contributions for Solid/Svelte/Lit bindings
+- [DAN-459](https://linear.app/dannydevs/issue/DAN-459) — P3.3 Phase 4+ planning: @effect-signals/nuxt + @effect-signals/devtools
+
+**Related issues outside this project:**
+- [DAN-421](https://linear.app/dannydevs/issue/DAN-421) — original effect-vue v0.1.0 tracker, marked Done with pivot-supersession note
+- [DAN-425](https://linear.app/dannydevs/issue/DAN-425) — npm scope reservations (effect-vue + effect-signals both done; @chain-reaction status TBD)
+- [DAN-422](https://linear.app/dannydevs/issue/DAN-422) — dapp-kit-vue contribution to Mysten (parallel, independent of effect-signals)
+
+## Note on directory location
+
+Local working tree is currently at `/Users/dannydevs/repos/danny/projects/effect-vue-project/effect-vue/` — the folder name was NOT renamed during the pivot; that will move with Danny's broader `/repos/danny` restructure. The git remote (origin) correctly points at `git@github.com:Danny-Devs/effect-signals.git` regardless of local folder name. If you find the local folder has moved, update Linear pointers accordingly but the GitHub repo stays at `Danny-Devs/effect-signals`.
 
 ---
 
